@@ -210,6 +210,7 @@ const char index_html[] PROGMEM = R"rawliteral(
                 <div class="compass-ring"><div class="compass-needle" id="needle"></div></div>
                 <div class="heading-display">
                     <span class="heading-val" id="headingVal">0</span><span class="heading-unit">&deg;</span>
+                    <div id="calBadge" style="font-size: 0.45rem; color: var(--danger-red); margin-top: 4px; font-weight: 800; letter-spacing: 2px;">NOT CALIBRATED</div>
                 </div>
             </div>
 
@@ -218,6 +219,9 @@ const char index_html[] PROGMEM = R"rawliteral(
                 <div class="switch-row">
                     <button class="toggle-btn active" id="btnCompass" onclick="toggleCompass()">PA-Lock</button>
                     <button class="toggle-btn" id="btnCruise" onclick="toggleCruise()">Cruise</button>
+                </div>
+                <div class="switch-row" style="margin-top: 8px;">
+                    <button class="toggle-btn" id="calBtn" onclick="startCalibration()" style="color: var(--accent-violet); border-color: rgba(138,43,226,0.3)">Calibrate Compass</button>
                 </div>
             </div>
 
@@ -297,6 +301,14 @@ const char index_html[] PROGMEM = R"rawliteral(
             fetch('/compass_toggle').then(r=>r.json()).then(d=>{
                 document.getElementById('btnCompass').classList.toggle('active', d.compass);
             }).catch(()=>{});
+        };
+
+        window.startCalibration = () => {
+            if(confirm('Place the car on a flat surface. It will spin slowly for 8 seconds to calibrate the compass.\n\nReady?')){
+                fetch('/calibrate').catch(()=>{});
+                document.getElementById('calBtn').classList.add('active');
+                document.getElementById('calBtn').textContent = 'SPINNING...';
+            }
         };
 
         function startStickVisually(base, zone, x, y) {
@@ -385,8 +397,20 @@ const char index_html[] PROGMEM = R"rawliteral(
             fetch('/heading').then(r=>r.json()).then(d=>{
                 if(d.heading >= 0) {
                     document.getElementById('headingVal').textContent = d.heading.toFixed(0);
-                    // Add rotational transition to needle instead of instant snap
                     document.getElementById('needle').style.transform = `rotate(${d.heading}deg)`;
+                }
+                
+                // Calibration Status
+                if(d.calibrated) { document.getElementById('calBadge').style.display = 'none'; }
+                else { document.getElementById('calBadge').style.display = 'block'; }
+                
+                if(d.mode === 'calibrating') {
+                    document.getElementById('calBtn').classList.add('active');
+                    document.getElementById('calBtn').textContent = 'SPINNING...';
+                    statusLbl.textContent = 'CALIBRATING';
+                } else {
+                    document.getElementById('calBtn').classList.remove('active');
+                    document.getElementById('calBtn').textContent = 'CALIBRATE COMPASS';
                 }
             }).catch(()=>{});
         }, 150);
