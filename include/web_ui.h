@@ -83,14 +83,17 @@ const char index_html[] PROGMEM = R"rawliteral(
         .btn-stop:active,.btn-stop.active{background:linear-gradient(145deg,rgba(255,61,113,.35),rgba(255,61,113,.1));box-shadow:0 0 18px var(--danger-glow);transform:scale(.88)}
 
         /* ── Precise Turn ── */
-        .turn-row{display:flex;gap:6px;align-items:center;justify-content:center}
+        .turn-row{display:flex;gap:6px;align-items:center;justify-content:center;flex-wrap:wrap}
         .turn-btn{font-family:inherit;font-size:.7rem;font-weight:900;padding:10px 16px;border-radius:12px;border:1px solid rgba(123,97,255,.2);background:linear-gradient(145deg,rgba(123,97,255,.1),rgba(123,97,255,.03));color:var(--purple);cursor:pointer;transition:all .12s;touch-action:none;outline:none;min-width:60px;text-align:center}
         .turn-btn:active{background:linear-gradient(145deg,rgba(123,97,255,.3),rgba(123,97,255,.1));box-shadow:0 0 16px var(--purple-glow);transform:scale(.93)}
-        .turn-custom{display:flex;align-items:center;gap:4px}
-        .turn-input{width:50px;background:var(--surface);border:1px solid var(--glass-border);border-radius:8px;color:var(--text);font-family:inherit;font-size:.75rem;font-weight:700;padding:8px 6px;text-align:center;outline:none}
-        .turn-input:focus{border-color:var(--accent)}
-        .turn-go{font-family:inherit;font-size:.6rem;font-weight:700;padding:8px 12px;border-radius:8px;border:1px solid rgba(0,229,255,.2);background:var(--accent-dim);color:var(--accent);cursor:pointer;outline:none;touch-action:none}
-        .turn-go:active{transform:scale(.93)}
+        .dial-wrap{display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:8px}
+        .dial-container{position:relative;width:160px;height:160px;touch-action:none}
+        .dial-canvas{width:160px;height:160px;cursor:pointer}
+        .dial-center-text{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none}
+        .dial-angle{font-size:1.6rem;font-weight:900;color:var(--purple);line-height:1}
+        .dial-label{font-size:.5rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px}
+        .dial-go{font-family:inherit;font-size:.7rem;font-weight:800;padding:10px 28px;border-radius:12px;border:1px solid rgba(123,97,255,.3);background:linear-gradient(145deg,rgba(123,97,255,.18),rgba(123,97,255,.06));color:var(--purple);cursor:pointer;outline:none;touch-action:none;transition:all .12s}
+        .dial-go:active{transform:scale(.93);box-shadow:0 0 16px var(--purple-glow)}
 
         .footer{padding:6px;font-size:.5rem;color:var(--text-dim);text-align:center;margin-top:4px}
 
@@ -182,12 +185,15 @@ const char index_html[] PROGMEM = R"rawliteral(
             <button class="turn-btn" onclick="precTurn(45)">+45&deg;</button>
             <button class="turn-btn" onclick="precTurn(90)">+90&deg;</button>
         </div>
-        <div class="turn-row" style="margin-top:6px">
-            <div class="turn-custom">
-                <input type="number" class="turn-input" id="customAngle" value="180" min="-360" max="360">
-                <span style="font-size:.6rem;color:var(--text-dim)">&deg;</span>
-                <button class="turn-go" onclick="precTurn(document.getElementById('customAngle').value)">GO</button>
+        <div class="dial-wrap">
+            <div class="dial-container" id="dialContainer">
+                <canvas class="dial-canvas" id="dialCanvas" width="320" height="320"></canvas>
+                <div class="dial-center-text">
+                    <div class="dial-angle" id="dialAngle">0</div>
+                    <div class="dial-label">degrees</div>
+                </div>
             </div>
+            <button class="dial-go" id="dialGo">TURN</button>
         </div>
     </div>
 
@@ -265,6 +271,91 @@ const char index_html[] PROGMEM = R"rawliteral(
             }
         };
         window.precTurn=function(a){a=parseFloat(a);if(isNaN(a))return;xhr('/turn_angle?angle='+a);setAction('Turn '+a+'\u00b0',true)};
+
+        // ── Circular Angle Dial ──
+        (function(){
+            var canvas=document.getElementById('dialCanvas'),ctx=canvas.getContext('2d');
+            var container=document.getElementById('dialContainer');
+            var angleDisp=document.getElementById('dialAngle'),goBtn=document.getElementById('dialGo');
+            var W=320,H=320,cx=W/2,cy=H/2,R=120,handleR=14;
+            var selectedAngle=0,dragging=false;
+            var purple='#7b61ff',purpleDim='rgba(123,97,255,0.15)',purpleGlow='rgba(123,97,255,0.4)';
+            var textDim='rgba(232,234,246,0.35)',text='#e8eaf6',bg='#080c18';
+
+            function drawDial(){
+                ctx.clearRect(0,0,W,H);
+                // Outer ring
+                ctx.beginPath();ctx.arc(cx,cy,R,0,2*Math.PI);ctx.strokeStyle='rgba(255,255,255,0.08)';ctx.lineWidth=2;ctx.stroke();
+                // Tick marks and labels
+                var labels=['0','90','180','270'];
+                for(var i=0;i<360;i+=15){
+                    var rad=(i-90)*Math.PI/180;
+                    var isMajor=i%90===0,isMid=i%45===0;
+                    var inner=isMajor?R-16:isMid?R-10:R-6;
+                    ctx.beginPath();
+                    ctx.moveTo(cx+Math.cos(rad)*inner,cy+Math.sin(rad)*inner);
+                    ctx.lineTo(cx+Math.cos(rad)*(R-1),cy+Math.sin(rad)*(R-1));
+                    ctx.strokeStyle=isMajor?'rgba(255,255,255,0.3)':isMid?'rgba(255,255,255,0.15)':'rgba(255,255,255,0.07)';
+                    ctx.lineWidth=isMajor?2:1;ctx.stroke();
+                    if(isMajor){
+                        var lx=cx+Math.cos(rad)*(R+14),ly=cy+Math.sin(rad)*(R+14);
+                        ctx.font='bold 11px -apple-system,Roboto,sans-serif';ctx.fillStyle=textDim;ctx.textAlign='center';ctx.textBaseline='middle';
+                        ctx.fillText(labels[i/90],lx,ly);
+                    }
+                }
+                // Arc from 0 to selected angle
+                if(selectedAngle!==0){
+                    var startRad=-Math.PI/2;
+                    var endRad=(selectedAngle-90)*Math.PI/180;
+                    ctx.beginPath();
+                    ctx.arc(cx,cy,R-8,startRad,endRad,selectedAngle<0);
+                    ctx.strokeStyle=purple;ctx.lineWidth=4;ctx.lineCap='round';ctx.stroke();
+                    // Glow
+                    ctx.beginPath();
+                    ctx.arc(cx,cy,R-8,startRad,endRad,selectedAngle<0);
+                    ctx.strokeStyle=purpleGlow;ctx.lineWidth=8;ctx.stroke();
+                }
+                // Handle
+                var hRad=(selectedAngle-90)*Math.PI/180;
+                var hx=cx+Math.cos(hRad)*R,hy=cy+Math.sin(hRad)*R;
+                ctx.beginPath();ctx.arc(hx,hy,handleR,0,2*Math.PI);
+                ctx.fillStyle=purple;ctx.fill();
+                ctx.shadowColor=purpleGlow;ctx.shadowBlur=12;
+                ctx.beginPath();ctx.arc(hx,hy,handleR-3,0,2*Math.PI);
+                ctx.fillStyle=bg;ctx.fill();
+                ctx.shadowBlur=0;
+                ctx.beginPath();ctx.arc(hx,hy,handleR-6,0,2*Math.PI);
+                ctx.fillStyle=purple;ctx.fill();
+                // Center dot
+                ctx.beginPath();ctx.arc(cx,cy,3,0,2*Math.PI);ctx.fillStyle='rgba(255,255,255,0.15)';ctx.fill();
+            }
+
+            function getAngleFromEvent(e){
+                var rect=canvas.getBoundingClientRect();
+                var scaleX=W/rect.width,scaleY=H/rect.height;
+                var x,y;
+                if(e.touches){x=e.touches[0].clientX-rect.left;y=e.touches[0].clientY-rect.top}
+                else{x=e.clientX-rect.left;y=e.clientY-rect.top}
+                x*=scaleX;y*=scaleY;
+                var ang=Math.atan2(y-cy,x-cx)*180/Math.PI+90;
+                // Snap to nearest 5 degrees
+                ang=Math.round(ang/5)*5;
+                if(ang>180)ang-=360;
+                if(ang<-180)ang+=360;
+                return ang;
+            }
+
+            function onStart(e){e.preventDefault();dragging=true;selectedAngle=getAngleFromEvent(e);angleDisp.textContent=selectedAngle;drawDial()}
+            function onMove(e){if(!dragging)return;e.preventDefault();selectedAngle=getAngleFromEvent(e);angleDisp.textContent=selectedAngle;drawDial()}
+            function onEnd(){dragging=false}
+
+            canvas.addEventListener('pointerdown',onStart);canvas.addEventListener('pointermove',onMove);
+            canvas.addEventListener('pointerup',onEnd);canvas.addEventListener('pointercancel',onEnd);canvas.addEventListener('pointerleave',onEnd);
+
+            goBtn.addEventListener('click',function(){if(selectedAngle!==0)precTurn(selectedAngle)});
+
+            drawDial();
+        })();
     })();
     </script>
 </body>
