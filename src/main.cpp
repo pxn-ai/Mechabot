@@ -18,65 +18,32 @@ AsyncWebServer server(80);
 // ══════════════════════════════════════════════════════════════
 // Drive State Machine
 // ══════════════════════════════════════════════════════════════
-enum DriveMode {
-    MODE_IDLE,
-    MODE_FORWARD,
-    MODE_BACKWARD,
-    MODE_TURN_LEFT,
-    MODE_TURN_RIGHT,
-    MODE_STRAFE_LEFT,
-    MODE_STRAFE_RIGHT,
-    MODE_DIAG_FL,
-    MODE_DIAG_FR,
-    MODE_DIAG_BL,
-    MODE_DIAG_BR,
+volatile float targetVx = 0.0;
+volatile float targetVy = 0.0;
+volatile float targetWz = 0.0;
+
+volatile int driveSpeed = 200;
+volatile bool compassAssist = true;
+
+float targetHeading = 0.0;
+float turnTargetHeading = 0.0;
+float Kp = 0.02; // Normalized P-gain for Wz (output scale is -1.0 to 1.0)
+int turnSpeed = 150; 
+
+enum Mode {
+    MODE_VECTOR,
     MODE_PRECISE_TURN,
     MODE_CALIBRATING
 };
-
-volatile DriveMode driveMode = MODE_IDLE;
-volatile int driveSpeed = 180;
-volatile bool compassAssist = true;   // Compass-assisted by default
-float targetHeading = 0.0;
-float turnTargetHeading = 0.0;
-float Kp = 2.5;                       // Proportional gain for compass correction
-int turnSpeed = 150;                   // Speed during precise turns
+volatile Mode coreMode = MODE_VECTOR;
 
 // Calibration state
 volatile bool calibrating = false;
 unsigned long calStartTime = 0;
-unsigned long calDuration = 8000;      // 8 seconds of spinning for cal
+unsigned long calDuration = 8000;
 
 // ══════════════════════════════════════════════════════════════
-// Compass-assisted forward/backward drive
-// ══════════════════════════════════════════════════════════════
-void compassDriveStraight(int baseSpeed, bool forward) {
-    if (!compassReady || !compassAssist) {
-        // Fallback: no compass
-        if (forward) moveForward(baseSpeed);
-        else moveBackward(baseSpeed);
-        return;
-    }
-
-    float error = getHeadingError(targetHeading);
-    float correction = Kp * error;
-
-    int leftSpeed  = baseSpeed + (int)correction;
-    int rightSpeed = baseSpeed - (int)correction;
-
-    leftSpeed  = constrain(leftSpeed, 0, 255);
-    rightSpeed = constrain(rightSpeed, 0, 255);
-
-    if (forward) {
-        setMotorSpeeds(leftSpeed, rightSpeed, leftSpeed, rightSpeed);
-    } else {
-        setMotorSpeeds(-leftSpeed, -rightSpeed, -leftSpeed, -rightSpeed);
-    }
-}
-
-// ══════════════════════════════════════════════════════════════
-// Precise turn logic (non-blocking, runs in loop)
-// Returns true when turn is complete
+// Precise turn logic (non-blocking)
 // ══════════════════════════════════════════════════════════════
 bool executePreciseTurn() {
     if (!compassReady) {
@@ -93,25 +60,22 @@ bool executePreciseTurn() {
         return true;
     }
 
-    // Variable speed: slow down as we approach target
-    int spd = (abs(error) > 20) ? turnSpeed : map((int)abs(error), 2, 20, 100, turnSpeed);
-
-    if (error > 0) {
-        turnRight(spd);
-    } else {
-        turnLeft(spd);
-    }
+    float spd = (abs(error) > 20) ? 0.6 : map((int)abs(error), 2, 20, 30, 60) / 100.0;
+    
+    // Wz only
+    if (error > 0) driveKinematics(0, 0, spd, driveSpeed);
+    else           driveKinematics(0, 0, -spd, driveSpeed);
+    
     return false;
 }
 
 // ══════════════════════════════════════════════════════════════
-// Calibration logic (non-blocking, runs in loop)
+// Calibration logic
 // ══════════════════════════════════════════════════════════════
 CalibrationResult calResult;
 bool executeCalibration() {
     if (millis() - calStartTime >= calDuration) {
         stopMotors();
-        // Compute final offsets from collected data
         calOffsetX = calResult.offsetX;
         calOffsetY = calResult.offsetY;
         calibrated = true;
@@ -120,10 +84,9 @@ bool executeCalibration() {
         return true;
     }
 
-    // Spin slowly for calibration
-    turnRight(120);
+    // Spin slowly
+    driveKinematics(0, 0, 0.4, 255);
 
-    // Sample magnetic field
     float mx, my;
     getRawMag(mx, my);
 
@@ -137,8 +100,6 @@ bool executeCalibration() {
         if (my > calResult.maxY) calResult.maxY = my;
     }
     calResult.samples++;
-
-    // Update offsets live
     calResult.offsetX = (calResult.maxX + calResult.minX) / 2.0;
     calResult.offsetY = (calResult.maxY + calResult.minY) / 2.0;
 
@@ -152,13 +113,10 @@ void setup() {
     Serial.begin(115200);
     delay(500);
     Serial.println("\n=================================");
-    Serial.println("  4WD Mecanum Car — ESP32-S3");
-    Serial.println("  Compass + Mecanum Edition");
+    Serial.println("  4WD Mecanum Vector Kinematics");
     Serial.println("=================================");
 
     motorSetup();
-    Serial.println("[HW] Motors ready");
-
     compassSetup();
 
     WiFi.softAP(AP_SSID, AP_PASSWORD);
@@ -166,186 +124,100 @@ void setup() {
     Serial.printf("[WiFi] AP: %s\n", AP_SSID);
     Serial.printf("[WiFi] IP: %s\n", WiFi.softAPIP().toString().c_str());
 
-    // ── Serve UI ──
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *r) {
         r->send(200, "text/html", index_html);
     });
 
-    // ── Basic movements ──
-    server.on("/forward", HTTP_GET, [](AsyncWebServerRequest *r) {
-        driveSpeed = r->hasParam("speed") ? constrain(r->getParam("speed")->value().toInt(), 0, 255) : 180;
-        if (compassAssist && compassReady) targetHeading = getHeading();
-        driveMode = MODE_FORWARD;
-        Serial.printf("[CMD] Forward @ %d (compass=%s)\n", driveSpeed, compassAssist ? "ON" : "OFF");
+    // ── Unified Vector Command ──
+    server.on("/vector", HTTP_GET, [](AsyncWebServerRequest *r) {
+        if (r->hasParam("vx")) targetVx = r->getParam("vx")->value().toFloat();
+        if (r->hasParam("vy")) targetVy = r->getParam("vy")->value().toFloat();
+        if (r->hasParam("wz")) targetWz = r->getParam("wz")->value().toFloat();
+        if (r->hasParam("speed")) driveSpeed = r->getParam("speed")->value().toInt();
+
+        // If manual rotation is applied, reset compass target to current heading
+        if (targetWz != 0.0 && compassReady) {
+            targetHeading = getHeading();
+        }
+        
+        coreMode = MODE_VECTOR;
         r->send(200, "application/json", "{\"status\":\"ok\"}");
     });
 
-    server.on("/backward", HTTP_GET, [](AsyncWebServerRequest *r) {
-        driveSpeed = r->hasParam("speed") ? constrain(r->getParam("speed")->value().toInt(), 0, 255) : 180;
-        if (compassAssist && compassReady) targetHeading = getHeading();
-        driveMode = MODE_BACKWARD;
-        Serial.printf("[CMD] Backward @ %d\n", driveSpeed);
-        r->send(200, "application/json", "{\"status\":\"ok\"}");
-    });
-
-    server.on("/left", HTTP_GET, [](AsyncWebServerRequest *r) {
-        driveSpeed = r->hasParam("speed") ? constrain(r->getParam("speed")->value().toInt(), 0, 255) : 180;
-        driveMode = MODE_TURN_LEFT;
-        r->send(200, "application/json", "{\"status\":\"ok\"}");
-    });
-
-    server.on("/right", HTTP_GET, [](AsyncWebServerRequest *r) {
-        driveSpeed = r->hasParam("speed") ? constrain(r->getParam("speed")->value().toInt(), 0, 255) : 180;
-        driveMode = MODE_TURN_RIGHT;
-        r->send(200, "application/json", "{\"status\":\"ok\"}");
-    });
-
+    // ── Stop ──
     server.on("/stop", HTTP_GET, [](AsyncWebServerRequest *r) {
-        driveMode = MODE_IDLE;
+        targetVx = 0.0; targetVy = 0.0; targetWz = 0.0;
+        if (compassReady) targetHeading = getHeading();
+        coreMode = MODE_VECTOR;
         stopMotors();
-        r->send(200, "application/json", "{\"status\":\"ok\"}");
-    });
-
-    // ── Mecanum strafes ──
-    server.on("/strafe_left", HTTP_GET, [](AsyncWebServerRequest *r) {
-        driveSpeed = r->hasParam("speed") ? constrain(r->getParam("speed")->value().toInt(), 0, 255) : 180;
-        driveMode = MODE_STRAFE_LEFT;
-        r->send(200, "application/json", "{\"status\":\"ok\"}");
-    });
-
-    server.on("/strafe_right", HTTP_GET, [](AsyncWebServerRequest *r) {
-        driveSpeed = r->hasParam("speed") ? constrain(r->getParam("speed")->value().toInt(), 0, 255) : 180;
-        driveMode = MODE_STRAFE_RIGHT;
-        r->send(200, "application/json", "{\"status\":\"ok\"}");
-    });
-
-    server.on("/diag_fl", HTTP_GET, [](AsyncWebServerRequest *r) {
-        driveSpeed = r->hasParam("speed") ? constrain(r->getParam("speed")->value().toInt(), 0, 255) : 180;
-        driveMode = MODE_DIAG_FL;
-        r->send(200, "application/json", "{\"status\":\"ok\"}");
-    });
-
-    server.on("/diag_fr", HTTP_GET, [](AsyncWebServerRequest *r) {
-        driveSpeed = r->hasParam("speed") ? constrain(r->getParam("speed")->value().toInt(), 0, 255) : 180;
-        driveMode = MODE_DIAG_FR;
-        r->send(200, "application/json", "{\"status\":\"ok\"}");
-    });
-
-    server.on("/diag_bl", HTTP_GET, [](AsyncWebServerRequest *r) {
-        driveSpeed = r->hasParam("speed") ? constrain(r->getParam("speed")->value().toInt(), 0, 255) : 180;
-        driveMode = MODE_DIAG_BL;
-        r->send(200, "application/json", "{\"status\":\"ok\"}");
-    });
-
-    server.on("/diag_br", HTTP_GET, [](AsyncWebServerRequest *r) {
-        driveSpeed = r->hasParam("speed") ? constrain(r->getParam("speed")->value().toInt(), 0, 255) : 180;
-        driveMode = MODE_DIAG_BR;
         r->send(200, "application/json", "{\"status\":\"ok\"}");
     });
 
     // ── Precise turn ──
     server.on("/turn_angle", HTTP_GET, [](AsyncWebServerRequest *r) {
-        if (!r->hasParam("angle")) {
-            r->send(400, "application/json", "{\"error\":\"missing angle\"}");
-            return;
-        }
+        if (!r->hasParam("angle")) { r->send(400); return; }
         float angle = r->getParam("angle")->value().toFloat();
-        float current = getHeading();
-        turnTargetHeading = normalizeAngle(current + angle);
-        driveMode = MODE_PRECISE_TURN;
-        Serial.printf("[CMD] Turn %.1f° → target %.1f°\n", angle, turnTargetHeading);
+        turnTargetHeading = normalizeAngle(getHeading() + angle);
+        coreMode = MODE_PRECISE_TURN;
+        Serial.printf("[CMD] Precise Turn %.1f°\n", angle);
         r->send(200, "application/json", "{\"status\":\"ok\"}");
     });
 
     // ── Compass toggle ──
     server.on("/compass_toggle", HTTP_GET, [](AsyncWebServerRequest *r) {
         compassAssist = !compassAssist;
-        char json[64];
-        snprintf(json, sizeof(json), "{\"compass\":%s}", compassAssist ? "true" : "false");
-        Serial.printf("[CMD] Compass assist: %s\n", compassAssist ? "ON" : "OFF");
-        r->send(200, "application/json", json);
+        if (compassAssist && compassReady) targetHeading = getHeading();
+        char j[64]; snprintf(j, sizeof(j), "{\"compass\":%s}", compassAssist?"true":"false");
+        r->send(200, "application/json", j);
     });
 
-    // ── Heading data ──
+    // ── Utility ──
     server.on("/heading", HTTP_GET, [](AsyncWebServerRequest *r) {
-        char json[128];
-        float h = getHeading();
-        snprintf(json, sizeof(json),
-            "{\"heading\":%.1f,\"compass\":%s,\"calibrated\":%s,\"mode\":\"%s\"}",
-            h,
-            compassAssist ? "true" : "false",
-            calibrated ? "true" : "false",
-            driveMode == MODE_CALIBRATING ? "calibrating" :
-            driveMode == MODE_PRECISE_TURN ? "turning" :
-            driveMode == MODE_IDLE ? "idle" : "driving"
-        );
-        r->send(200, "application/json", json);
+        char j[128];
+        snprintf(j, sizeof(j), "{\"heading\":%.1f,\"compass\":%s,\"calibrated\":%s,\"mode\":\"%s\"}",
+            getHeading(), compassAssist?"true":"false", calibrated?"true":"false",
+            coreMode==MODE_CALIBRATING?"calibrating":coreMode==MODE_PRECISE_TURN?"turning":(targetVx==0&&targetVy==0&&targetWz==0)?"idle":"driving");
+        r->send(200, "application/json", j);
     });
 
-    // ── Calibration ──
     server.on("/calibrate", HTTP_GET, [](AsyncWebServerRequest *r) {
         calStartTime = millis();
         calResult.samples = 0;
-        driveMode = MODE_CALIBRATING;
-        Serial.println("[CMD] Calibration started (8s spin)");
+        coreMode = MODE_CALIBRATING;
         r->send(200, "application/json", "{\"status\":\"calibrating\"}");
     });
 
     server.begin();
-    Serial.println("[WEB] Server started on port 80");
-    Serial.println("\n>>> Connect to WiFi: 4WD-Car");
-    Serial.println(">>> Open: http://192.168.4.1\n");
+    Serial.println("[WEB] Server started -> http://192.168.4.1\n");
 }
 
 // ══════════════════════════════════════════════════════════════
-// Main Loop — runs at ~50Hz for compass correction
+// Main Loop
 // ══════════════════════════════════════════════════════════════
 void loop() {
-    switch (driveMode) {
-        case MODE_FORWARD:
-            compassDriveStraight(driveSpeed, true);
-            break;
-        case MODE_BACKWARD:
-            compassDriveStraight(driveSpeed, false);
-            break;
-        case MODE_TURN_LEFT:
-            turnLeft(driveSpeed);
-            break;
-        case MODE_TURN_RIGHT:
-            turnRight(driveSpeed);
-            break;
-        case MODE_STRAFE_LEFT:
-            strafeLeft(driveSpeed);
-            break;
-        case MODE_STRAFE_RIGHT:
-            strafeRight(driveSpeed);
-            break;
-        case MODE_DIAG_FL:
-            diagFL(driveSpeed);
-            break;
-        case MODE_DIAG_FR:
-            diagFR(driveSpeed);
-            break;
-        case MODE_DIAG_BL:
-            diagBL(driveSpeed);
-            break;
-        case MODE_DIAG_BR:
-            diagBR(driveSpeed);
-            break;
-        case MODE_PRECISE_TURN:
-            if (executePreciseTurn()) {
-                driveMode = MODE_IDLE;
+    switch (coreMode) {
+        case MODE_VECTOR: {
+            if (targetVx == 0.0 && targetVy == 0.0 && targetWz == 0.0) {
+                stopMotors();
+            } else {
+                float effectiveWz = targetWz;
+                
+                // Overlay Magnetic P-Controller if translating without manual spinning
+                if (compassAssist && compassReady && targetWz == 0.0) {
+                    float error = getHeadingError(targetHeading);
+                    effectiveWz = constrain(Kp * error, -0.5, 0.5); 
+                }
+
+                driveKinematics(targetVx, targetVy, effectiveWz, driveSpeed);
             }
+            break;
+        }
+        case MODE_PRECISE_TURN:
+            if (executePreciseTurn()) coreMode = MODE_VECTOR;
             break;
         case MODE_CALIBRATING:
-            if (executeCalibration()) {
-                driveMode = MODE_IDLE;
-            }
-            break;
-        case MODE_IDLE:
-        default:
+            if (executeCalibration()) coreMode = MODE_VECTOR;
             break;
     }
-
-    delay(20); // 50Hz loop
+    delay(20); // 50hz
 }

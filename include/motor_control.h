@@ -4,20 +4,13 @@
 #include <Arduino.h>
 
 // ══════════════════════════════════════════════════════════════
-// 4WD Mecanum Motor Control — 2x L298N on ESP32-S3
+// 4WD Mecanum Kinematic Control
 // ══════════════════════════════════════════════════════════════
-//
 //  L298N #1 (Left Side)                L298N #2 (Right Side)
 //  ┌──────────────────┐                ┌──────────────────┐
 //  │ Motor A: Front-L │                │ Motor A: Front-R │
 //  │ Motor B: Rear-L  │                │ Motor B: Rear-R  │
 //  └──────────────────┘                └──────────────────┘
-//
-//  Mecanum Wheel Layout (top view, arrows show roller axis):
-//    FL ╲  ╱ FR
-//    RL ╱  ╲ RR
-//
-// ══════════════════════════════════════════════════════════════
 
 // ── L298N #1 — Left Side ──
 #define FL_IN1   4
@@ -37,7 +30,7 @@
 
 // ── LEDC PWM ──
 #define PWM_FREQ       1000
-#define PWM_RESOLUTION 8
+#define PWM_RESOLUTION 8 // 0-255
 
 #define CH_FL  0
 #define CH_RL  1
@@ -73,86 +66,50 @@ void motorSetup() {
 
 // ──────────────────────────────────────────────
 // Low-level: drive a single motor
-//   dir: 1=forward, -1=backward, 0=stop
-//   speed: 0–255
 // ──────────────────────────────────────────────
-void driveMotor(int in1, int in2, int channel, int dir, int speed) {
-    if (dir > 0)      { digitalWrite(in1, HIGH); digitalWrite(in2, LOW);  }
-    else if (dir < 0) { digitalWrite(in1, LOW);  digitalWrite(in2, HIGH); }
-    else              { digitalWrite(in1, LOW);  digitalWrite(in2, LOW);  }
-    ledcWrite(channel, abs(speed));
+void driveMotor(int in1, int in2, int channel, float speed) {
+    if (speed > 0.0)      { digitalWrite(in1, HIGH); digitalWrite(in2, LOW);  }
+    else if (speed < 0.0) { digitalWrite(in1, LOW);  digitalWrite(in2, HIGH); }
+    else                  { digitalWrite(in1, LOW);  digitalWrite(in2, LOW);  }
+    ledcWrite(channel, constrain(abs((int)speed), 0, 255));
 }
 
-// ──────────────────────────────────────────────
-// Per-motor speed control (for compass correction)
-// Positive = forward, negative = backward
-// ──────────────────────────────────────────────
-void setMotorSpeeds(int fl, int fr, int rl, int rr) {
-    driveMotor(FL_IN1, FL_IN2, CH_FL, (fl > 0) ? 1 : (fl < 0) ? -1 : 0, abs(fl));
-    driveMotor(FR_IN1, FR_IN2, CH_FR, (fr > 0) ? 1 : (fr < 0) ? -1 : 0, abs(fr));
-    driveMotor(RL_IN1, RL_IN2, CH_RL, (rl > 0) ? 1 : (rl < 0) ? -1 : 0, abs(rl));
-    driveMotor(RR_IN1, RR_IN2, CH_RR, (rr > 0) ? 1 : (rr < 0) ? -1 : 0, abs(rr));
+void setMotorSpeeds(float fl, float fr, float rl, float rr) {
+    driveMotor(FL_IN1, FL_IN2, CH_FL, fl);
+    driveMotor(FR_IN1, FR_IN2, CH_FR, fr);
+    driveMotor(RL_IN1, RL_IN2, CH_RL, rl);
+    driveMotor(RR_IN1, RR_IN2, CH_RR, rr);
 }
-
-// ══════════════════════════════════════════════════════════════
-// High-level movement (uniform speed)
-// ══════════════════════════════════════════════════════════════
 
 void stopMotors() {
     setMotorSpeeds(0, 0, 0, 0);
 }
 
-void moveForward(int s) {
-    setMotorSpeeds(s, s, s, s);
-}
-
-void moveBackward(int s) {
-    setMotorSpeeds(-s, -s, -s, -s);
-}
-
-// Spin in place
-void turnLeft(int s) {
-    setMotorSpeeds(-s, s, -s, s);
-}
-
-void turnRight(int s) {
-    setMotorSpeeds(s, -s, s, -s);
-}
-
 // ══════════════════════════════════════════════════════════════
-// Mecanum-specific movements
+// Inverse Kinematics Engine
 // ══════════════════════════════════════════════════════════════
+// vx: translation lateral (-1.0 to 1.0)
+// vy: translation vertical (-1.0 to 1.0)
+// wz: rotation around Z  (-1.0 to 1.0)
+// speedLimit: absolute hardware limit 0-255
+void driveKinematics(float vx, float vy, float wz, int speedLimit) {
+    // Kinematic formulas for standard 'X' mecanum layout
+    float fl = vy + vx + wz;
+    float fr = vy - vx - wz;
+    float rl = vy - vx + wz;
+    float rr = vy + vx - wz;
 
-// Strafe (sideways, no rotation)
-void strafeLeft(int s) {
-    // FL backward, FR forward, RL forward, RR backward
-    setMotorSpeeds(-s, s, s, -s);
-}
+    // Normalization to maintain vector ratios if sum exceeds 1.0
+    float max_val = max({abs(fl), abs(fr), abs(rl), abs(rr)});
+    if (max_val > 1.0) {
+        fl /= max_val;
+        fr /= max_val;
+        rl /= max_val;
+        rr /= max_val;
+    }
 
-void strafeRight(int s) {
-    // FL forward, FR backward, RL backward, RR forward
-    setMotorSpeeds(s, -s, -s, s);
-}
-
-// Diagonals
-void diagFL(int s) {
-    // Front-Left: FL stop, FR fwd, RL fwd, RR stop
-    setMotorSpeeds(0, s, s, 0);
-}
-
-void diagFR(int s) {
-    // Front-Right: FL fwd, FR stop, RL stop, RR fwd
-    setMotorSpeeds(s, 0, 0, s);
-}
-
-void diagBL(int s) {
-    // Back-Left: FL stop, FR bwd, RL bwd, RR stop
-    setMotorSpeeds(0, -s, -s, 0);
-}
-
-void diagBR(int s) {
-    // Back-Right: FL bwd, FR stop, RL stop, RR bwd
-    setMotorSpeeds(-s, 0, 0, -s);
+    // Apply absolute max speed mapping
+    setMotorSpeeds(fl * speedLimit, fr * speedLimit, rl * speedLimit, rr * speedLimit);
 }
 
 #endif // MOTOR_CONTROL_H
