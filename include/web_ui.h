@@ -115,8 +115,8 @@ const char index_html[] PROGMEM = R"rawliteral(
         @keyframes spinRev { 100% { transform: rotate(-360deg); } }
 
         .compass-needle {
-            position: absolute; width: 2px; height: 100%; padding: 4px; pointer-events: none;
-            transition: transform 0.15s ease-out;
+            position: absolute; top: 8px; left: 50%; width: 2px; height: 54px; margin-left: -1px; pointer-events: none;
+            transition: transform 0.15s ease-out; transform-origin: 50% 50%;
         }
         .compass-needle::before {
             content:''; display:block; width: 100%; height: 50%; background: var(--danger-red);
