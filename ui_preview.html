@@ -1,7 +1,3 @@
-#ifndef WEB_UI_H
-#define WEB_UI_H
-
-const char index_html[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -319,7 +315,7 @@ const char index_html[] PROGMEM = R"rawliteral(
 
     <script>
         // ══ CONFIG ══
-        const MOCK = false;
+        const MOCK = (location.protocol === 'file:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1');
         const J_RADIUS = 60;
         let vx = 0, vy = 0, wz = 0, cruiseMode = false, activePointers = {};
 
@@ -328,8 +324,21 @@ const char index_html[] PROGMEM = R"rawliteral(
         const zoneL = $('zoneL'), zoneR = $('zoneR');
         let lastSent = "";
 
+        // ══ MOCK DATA (for Chrome preview) ══
+        let mockHeading = 0;
+        function getMockData() {
+            mockHeading = (mockHeading + 0.5) % 360;
+            return {
+                heading: mockHeading, compass: mockHeading + Math.random()*2-1,
+                pitch: Math.sin(Date.now()/2000)*5, roll: Math.cos(Date.now()/3000)*3,
+                gyroZ: Math.sin(Date.now()/1000)*10, compassAssist: true,
+                calibrated: true, imu: true, mode: (vx||vy||wz) ? 'driving' : 'idle'
+            };
+        }
+
         // ══ COMMS ══
         function api(url, cb) {
+            if (MOCK) { if (cb) cb(getMockData()); return; }
             fetch(url).then(r => r.json()).then(cb || (()=>{})).catch(()=>{});
         }
 
@@ -338,7 +347,7 @@ const char index_html[] PROGMEM = R"rawliteral(
             if (vx===0 && vy===0 && wz===0 && lastSent==="stop") { document.body.classList.remove('driving'); return; }
             let p = `vx=${vx.toFixed(2)}&vy=${vy.toFixed(2)}&wz=${wz.toFixed(2)}&speed=${$('speedSlider').value}`;
             if (p !== lastSent) {
-                fetch('/vector?' + p).catch(()=>{});
+                if (!MOCK) fetch('/vector?' + p).catch(()=>{});
                 lastSent = (vx===0 && vy===0 && wz===0) ? "stop" : p;
                 $('statusLbl').textContent = lastSent === "stop" ? "IDLE" : "VECTORING";
                 document.body.classList.toggle('driving', lastSent !== "stop");
@@ -349,7 +358,7 @@ const char index_html[] PROGMEM = R"rawliteral(
         window.emergencyStop = () => {
             vx = 0; vy = 0; wz = 0; cruiseMode = false;
             $('btnCruise').classList.remove('active');
-            fetch('/stop').catch(()=>{});
+            if (!MOCK) fetch('/stop').catch(()=>{});
             endStick(baseL, nubL, zoneL); endStick(baseR, nubR, zoneR);
         };
         window.toggleCruise = () => { cruiseMode = !cruiseMode; $('btnCruise').classList.toggle('active', cruiseMode); };
@@ -382,7 +391,7 @@ const char index_html[] PROGMEM = R"rawliteral(
         }
 
         document.body.addEventListener('pointerdown', e => {
-            if (e.target.closest('.hud-center')) return;
+            if (e.target.closest('.hud-center')) return; // Don't hijack HUD clicks
             let isLeft = e.clientX < window.innerWidth / 2;
             startStick(isLeft ? baseL : baseR, isLeft ? zoneL : zoneR, e.clientX, e.clientY);
             activePointers[e.pointerId] = { left: isLeft, sx: e.clientX, sy: e.clientY };
@@ -428,19 +437,18 @@ const char index_html[] PROGMEM = R"rawliteral(
                     $('calBtn').classList.remove('active'); $('calBtn').textContent = 'Cal Compass';
                 }
             });
-        }, 150);
+        }, MOCK ? 100 : 150);
 
-        // Load PID values from ESP on connect
-        api('/pid', d => {
-            if (d) {
-                $('dKp').value = d.driveKp; $('dKi').value = d.driveKi; $('dKd').value = d.driveKd;
-                $('tKp').value = d.turnKp; $('tKi').value = d.turnKi; $('tKd').value = d.turnKd;
-                $('tMin').value = d.turnMin; $('tMax').value = d.turnMax; $('alpha').value = d.alpha;
-            }
-        });
+        // Load saved PID values
+        if (!MOCK) {
+            api('/pid', d => {
+                if (d) {
+                    $('dKp').value = d.driveKp; $('dKi').value = d.driveKi; $('dKd').value = d.driveKd;
+                    $('tKp').value = d.turnKp; $('tKi').value = d.turnKi; $('tKd').value = d.turnKd;
+                    $('tMin').value = d.turnMin; $('tMax').value = d.turnMax; $('alpha').value = d.alpha;
+                }
+            });
+        }
     </script>
 </body>
 </html>
-)rawliteral";
-
-#endif // WEB_UI_H

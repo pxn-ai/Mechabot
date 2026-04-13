@@ -7,7 +7,7 @@
 #include <math.h>
 
 // ══════════════════════════════════════════════════════════════
-// HMC5983 Compass Module (HMC5883L register-compatible)
+// HMC5983 Compass + Sensor Fusion
 // I2C: SDA=GPIO1, SCL=GPIO2
 // ══════════════════════════════════════════════════════════════
 
@@ -21,6 +21,11 @@ bool compassReady = false;
 float calOffsetX = 0.0;
 float calOffsetY = 0.0;
 bool calibrated = false;
+
+// ── Sensor Fusion ──
+float fusedHeading = 0.0;
+float fusionAlpha = 0.95;  // Trust gyro 95%, compass 5% per cycle
+bool fusionInitialized = false;
 
 // ──────────────────────────────────────────────
 // Initialize compass
@@ -47,15 +52,14 @@ void getRawMag(float &mx, float &my) {
 }
 
 // ──────────────────────────────────────────────
-// Get calibrated heading (0–360°)
+// Raw compass heading (0–360°)
 // ──────────────────────────────────────────────
-float getHeading() {
+float getCompassHeading() {
     if (!compassReady) return -1.0;
 
     sensors_event_t event;
     mag.getEvent(&event);
 
-    // Apply hard-iron calibration offsets
     float x = event.magnetic.x - calOffsetX;
     float y = event.magnetic.y - calOffsetY;
 
@@ -66,8 +70,52 @@ float getHeading() {
 }
 
 // ──────────────────────────────────────────────
+// Fused heading using complementary filter
+// Call this AFTER imuUpdate() each cycle
+// gyroYawRate: °/s from gyro Z-axis
+// dt: seconds since last call
+// ──────────────────────────────────────────────
+float updateFusedHeading(float gyroYawRate, float dt) {
+    float compassH = getCompassHeading();
+
+    if (!fusionInitialized && compassH >= 0) {
+        fusedHeading = compassH;
+        fusionInitialized = true;
+        return fusedHeading;
+    }
+
+    if (compassH < 0) {
+        // Compass unavailable — gyro only
+        fusedHeading += gyroYawRate * dt;
+    } else {
+        // Complementary filter
+        float gyroEstimate = fusedHeading + gyroYawRate * dt;
+
+        // Handle 360° wrap-around for blending
+        float diff = compassH - gyroEstimate;
+        if (diff > 180.0) diff -= 360.0;
+        else if (diff < -180.0) diff += 360.0;
+
+        fusedHeading = gyroEstimate + (1.0 - fusionAlpha) * diff;
+    }
+
+    // Normalize 0–360
+    if (fusedHeading >= 360.0) fusedHeading -= 360.0;
+    if (fusedHeading < 0.0) fusedHeading += 360.0;
+
+    return fusedHeading;
+}
+
+// ──────────────────────────────────────────────
+// Get the best available heading
+// ──────────────────────────────────────────────
+float getHeading() {
+    if (fusionInitialized) return fusedHeading;
+    return getCompassHeading();
+}
+
+// ──────────────────────────────────────────────
 // Heading error with 360° wrap-around
-// Returns -180 to +180 (positive = clockwise to target)
 // ──────────────────────────────────────────────
 float getHeadingError(float target) {
     float current = getHeading();
@@ -87,10 +135,7 @@ float normalizeAngle(float angle) {
 }
 
 // ──────────────────────────────────────────────
-// Calibration: samples min/max over a rotation,
-// computes hard-iron offsets.
-// Call this while spinning the robot slowly.
-// Returns when enough samples are collected.
+// Calibration structs
 // ──────────────────────────────────────────────
 struct CalibrationResult {
     float offsetX, offsetY;
@@ -102,7 +147,6 @@ CalibrationResult runCalibration(unsigned long durationMs) {
     CalibrationResult cal;
     float mx, my;
 
-    // Initialize with first reading
     getRawMag(mx, my);
     cal.minX = cal.maxX = mx;
     cal.minY = cal.maxY = my;
@@ -118,14 +162,12 @@ CalibrationResult runCalibration(unsigned long durationMs) {
         if (my > cal.maxY) cal.maxY = my;
 
         cal.samples++;
-        delay(20);  // 50Hz sampling
+        delay(20);
     }
 
-    // Compute hard-iron offsets (center of the ellipse)
     cal.offsetX = (cal.maxX + cal.minX) / 2.0;
     cal.offsetY = (cal.maxY + cal.minY) / 2.0;
 
-    // Apply offsets
     calOffsetX = cal.offsetX;
     calOffsetY = cal.offsetY;
     calibrated = true;
