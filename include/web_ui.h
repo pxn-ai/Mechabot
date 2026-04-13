@@ -6,7 +6,7 @@ const char index_html[] PROGMEM = R"rawliteral(
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Mecanum HUD Core</title>
     <style>
         *, *::before, *::after { box-sizing: border-box; }
@@ -19,7 +19,7 @@ const char index_html[] PROGMEM = R"rawliteral(
             margin: 0; padding: 0; width: 100%; height: 100%;
             background: var(--bg-void); color: #fff;
             font-family: 'SF Pro Display', -apple-system, sans-serif;
-            overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none;
+            overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none;
         }
 
         /* ── Cosmic BG ── */
@@ -68,7 +68,7 @@ const char index_html[] PROGMEM = R"rawliteral(
             padding: 10px 12px; position: relative; overflow-y: auto; overflow-x: hidden;
             background: linear-gradient(to right, rgba(0,0,0,0.3), rgba(0,0,0,0.5), rgba(0,0,0,0.3));
             box-shadow: 0 0 40px rgba(0,0,0,0.7);
-            -ms-overflow-style: none; scrollbar-width: none;
+            -ms-overflow-style: none;
         }
         .hud-center::-webkit-scrollbar { display: none; }
 
@@ -88,15 +88,26 @@ const char index_html[] PROGMEM = R"rawliteral(
         .hud-module {
             width: 100%; border-radius: 12px; background: var(--glass-bg);
             border: 1px solid var(--glass-border); padding: 10px; margin-bottom: 8px;
-            backdrop-filter: blur(8px); position: relative; overflow: hidden;
+            -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); position: relative; overflow: hidden;
         }
         .hud-module::before {
             content: ''; position: absolute; bottom: 0; left: 10%; width: 80%; height: 1px;
             background: var(--accent-cyan); opacity: 0.2; animation: lineBreath 3s infinite alternate;
         }
+        .hud-module.compact { padding: 8px; }
+        .hud-module.controls-module { padding: 8px; }
+        .hud-module.pid-panel { padding: 8px; }
         .module-label {
             font-size: 0.45rem; font-weight: 700; text-transform: uppercase;
             letter-spacing: 2px; color: rgba(255,255,255,0.3); margin-bottom: 6px;
+        }
+        .cal-badge {
+            text-align: center;
+            font-size: 0.4rem;
+            color: var(--danger-red);
+            font-weight: 800;
+            letter-spacing: 1px;
+            margin-top: 2px;
         }
 
         /* ── Compass ── */
@@ -156,6 +167,9 @@ const char index_html[] PROGMEM = R"rawliteral(
             background: var(--accent-cyan);
         }
         .toggle-btn:active { transform: scale(0.93); }
+        .toggle-btn.violet { color: var(--accent-violet); border-color: rgba(138,43,226,0.2); }
+        .toggle-btn.amber { color: var(--amber); border-color: rgba(255,184,0,0.2); }
+        .toggle-row.spaced { margin-top: 6px; }
 
         .btn-stop {
             width: 100%; padding: 14px; border-radius: 10px; margin-top: 6px;
@@ -180,6 +194,7 @@ const char index_html[] PROGMEM = R"rawliteral(
 
         /* ── PID Tuning Panel ── */
         .pid-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+        .pid-grid.tight { margin-bottom: 8px; }
         .pid-field { display: flex; flex-direction: column; }
         .pid-field label {
             font-size: 0.4rem; text-transform: uppercase; letter-spacing: 1px;
@@ -254,7 +269,7 @@ const char index_html[] PROGMEM = R"rawliteral(
                 <div class="heading-row">
                     <span class="heading-val" id="headingVal">0</span><span class="heading-unit">&deg;</span>
                 </div>
-                <div id="calBadge" style="text-align:center;font-size:0.4rem;color:var(--danger-red);font-weight:800;letter-spacing:1px;margin-top:2px">NOT CALIBRATED</div>
+                <div id="calBadge" class="cal-badge">NOT CALIBRATED</div>
             </div>
 
             <!-- IMU Gauges -->
@@ -268,40 +283,40 @@ const char index_html[] PROGMEM = R"rawliteral(
             </div>
 
             <!-- Controls -->
-            <div class="hud-module" style="padding:8px">
+            <div class="hud-module controls-module">
                 <div class="switch-row">
                     <button class="toggle-btn active" id="btnCompass" onclick="toggleCompass()">PA-Lock</button>
                     <button class="toggle-btn" id="btnCruise" onclick="toggleCruise()">Cruise</button>
                 </div>
-                <div class="switch-row" style="margin-top:6px">
-                    <button class="toggle-btn" id="calBtn" onclick="startCalibration()" style="color:var(--accent-violet);border-color:rgba(138,43,226,0.2)">Cal Compass</button>
-                    <button class="toggle-btn" onclick="imuCal()" style="color:var(--amber);border-color:rgba(255,184,0,0.2)">Cal Gyro</button>
+                <div class="switch-row toggle-row spaced">
+                    <button class="toggle-btn violet" id="calBtn" onclick="startCalibration()">Cal Compass</button>
+                    <button class="toggle-btn amber" onclick="imuCal()">Cal Gyro</button>
                 </div>
             </div>
 
             <!-- Thrust -->
             <div class="slider-wrap">
-                <span class="slider-label">Thrust Limit</span>
-                <input type="range" id="speedSlider" min="80" max="255" value="255">
+                <label class="slider-label" for="speedSlider">Thrust Limit</label>
+                <input type="range" id="speedSlider" min="80" max="255" value="255" title="Thrust Limit">
             </div>
 
             <!-- PID Tuning (collapsible) -->
             <button class="collapse-toggle" onclick="togglePID()">&#9660; PID Tuning</button>
-            <div class="hud-module collapsible collapsed" id="pidPanel" style="padding:8px">
+            <div class="hud-module pid-panel collapsible collapsed" id="pidPanel">
                 <div class="module-label">Drive PID (Heading Lock)</div>
-                <div class="pid-grid" style="margin-bottom:8px">
-                    <div class="pid-field"><label>Kp</label><input id="dKp" type="number" step="0.001" value="0.02"></div>
-                    <div class="pid-field"><label>Ki</label><input id="dKi" type="number" step="0.001" value="0"></div>
-                    <div class="pid-field"><label>Kd</label><input id="dKd" type="number" step="0.001" value="0"></div>
-                    <div class="pid-field"><label>Fusion &alpha;</label><input id="alpha" type="number" step="0.01" value="0.95" min="0" max="1"></div>
+                <div class="pid-grid tight">
+                    <div class="pid-field"><label for="dKp">Kp</label><input id="dKp" type="number" step="0.001" value="0.02" title="Drive Kp"></div>
+                    <div class="pid-field"><label for="dKi">Ki</label><input id="dKi" type="number" step="0.001" value="0" title="Drive Ki"></div>
+                    <div class="pid-field"><label for="dKd">Kd</label><input id="dKd" type="number" step="0.001" value="0" title="Drive Kd"></div>
+                    <div class="pid-field"><label for="alpha">Fusion &alpha;</label><input id="alpha" type="number" step="0.01" value="0.95" min="0" max="1" title="Fusion alpha"></div>
                 </div>
                 <div class="module-label">Turn PID (Precise Rotate)</div>
                 <div class="pid-grid">
-                    <div class="pid-field"><label>Kp</label><input id="tKp" type="number" step="0.1" value="3.0"></div>
-                    <div class="pid-field"><label>Ki</label><input id="tKi" type="number" step="0.1" value="0"></div>
-                    <div class="pid-field"><label>Kd</label><input id="tKd" type="number" step="0.1" value="0.5"></div>
-                    <div class="pid-field"><label>Min SPD</label><input id="tMin" type="number" value="80" min="0" max="255"></div>
-                    <div class="pid-field"><label>Max SPD</label><input id="tMax" type="number" value="180" min="0" max="255"></div>
+                    <div class="pid-field"><label for="tKp">Kp</label><input id="tKp" type="number" step="0.1" value="3.0" title="Turn Kp"></div>
+                    <div class="pid-field"><label for="tKi">Ki</label><input id="tKi" type="number" step="0.1" value="0" title="Turn Ki"></div>
+                    <div class="pid-field"><label for="tKd">Kd</label><input id="tKd" type="number" step="0.1" value="0.5" title="Turn Kd"></div>
+                    <div class="pid-field"><label for="tMin">Min SPD</label><input id="tMin" type="number" value="80" min="0" max="255" title="Turn minimum speed"></div>
+                    <div class="pid-field"><label for="tMax">Max SPD</label><input id="tMax" type="number" value="180" min="0" max="255" title="Turn maximum speed"></div>
                     <button class="pid-apply" onclick="applyPID()">Apply PID Values</button>
                 </div>
             </div>
@@ -408,15 +423,16 @@ const char index_html[] PROGMEM = R"rawliteral(
 
         // ══ TELEMETRY ══
         setInterval(() => {
-            api('/heading', d => {
-                if (d.heading >= 0) {
-                    $('headingVal').textContent = d.heading.toFixed(0);
-                    $('needle').style.transform = `rotate(${d.heading}deg)`;
+            api('/imu', d => {
+                const heading = d.fusedHeading !== undefined ? d.fusedHeading : d.heading;
+                if (heading >= 0) {
+                    $('headingVal').textContent = heading.toFixed(0);
+                    $('needle').style.transform = `rotate(${heading}deg)`;
                 }
                 $('pitchVal').textContent = d.pitch.toFixed(1);
                 $('rollVal').textContent = d.roll.toFixed(1);
                 $('gyroZVal').textContent = d.gyroZ.toFixed(1);
-                $('imuStatus').textContent = d.imu ? 'IMU:OK' : 'IMU:--';
+                $('imuStatus').textContent = d.imuReady ? 'IMU:OK' : 'IMU:--';
 
                 if (d.calibrated) $('calBadge').style.display = 'none';
                 else $('calBadge').style.display = 'block';

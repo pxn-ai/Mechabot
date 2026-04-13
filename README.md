@@ -4,7 +4,7 @@
   # ⚡ 4WD Mecanum Robot &middot; ESP32-S3
 
   **Next-Gen Omni-Directional Mobility System with Magnetic Heading Stabilization**  
-  *Fully self-hosted Web UI &middot; Compass-Assisted Drive &middot; 8-Way Strafe*
+  *Fully self-hosted Web UI &middot; IMU Telemetry &middot; 8-Way Strafe*
 
   <p align="center">
     <img src="https://img.shields.io/badge/Board-ESP32--S3-7b61ff?style=for-the-badge&logo=espressif" />
@@ -23,7 +23,7 @@
 ## ✨ System Features
 
 - 🏎️ **Omni-Directional Drive**: 8-way mecanum mobility. Forward, backward, spin, pure lateral strafe, and 45° diagonal gliding.
-- 🧭 **Magnetic Heading Lock**: An integrated HMC5983 compass acts as an IMU, dynamically applying proportional (P-control) feedback at 50Hz to keep the robot flawlessly straight, negating motor imperfections and wheel slippage.
+- 🧭 **Magnetic Heading Lock**: An integrated HMC5983 compass provides absolute heading while the MPU6500 gyroscope smooths motion with a complementary filter, keeping the robot straight and reducing turn overshoot.
 - 🎯 **Precise Angle Execution**: Command exact relative rotations (e.g., +90°, -45°) via an interactive circular UI dial. The rover rotates and automatically halts precisely on the target vector.
 - 🛜 **Embedded WiFi AP & Server**: No bridges. No latency. The ESP32-S3 broadcasts its own high-speed `4WD-Car` hotspot and serves the UI directly via `ESPAsyncWebServer`.
 - 🌌 **Neon Glassmorphism UI**: Beautiful, dark-themed responsive app interface accessible from any mobile browser, featuring an animated 360° Compass HUD and D-Pad.
@@ -105,10 +105,11 @@ The system uses **two L298N Motor Drivers** grouped by side to power four mecanu
 
 Upon loading the Web UI, you have access to four primary control panels:
 
-1. **Compass Telemetry**: Displays absolute magnetic heading in real-time. Features an interactive toggle to turn off **Compass Assist** (allowing free driving without P-Control locking). Includes a **Calibration** sequencer to calculate hard-iron magnetic offsets.
+1. **Compass Telemetry**: Displays fused heading, raw compass heading, and live IMU telemetry in real-time. Features an interactive toggle to turn off **Compass Assist** (allowing free driving without P-Control locking). Includes a **Calibration** sequencer to calculate hard-iron magnetic offsets and a gyro recalibration button.
 2. **Thrust Vectoring**: A slider to modulate the absolute PWM limit (80-255).
 3. **Mecanum D-Pad**: Multi-touch capable control grid for 8-axis movement (FWD, BWD, strafe sideways, dual-axis diagonals).
 4. **Precision Orientation**: Input precise rotational angles via the futuristic circular swipe-dial or quick-tap preset buttons to let the rover autonomously execute the maneuver.
+5. **Standalone Preview**: Open [ui_preview.html](/Volumes/Pasan_s_SSD/PlatformIO/Projects/4WD_Bluetooth/ui_preview.html) in a browser to test the shared HUD layout offline with mock data before syncing it into the embedded UI.
 
 ---
 

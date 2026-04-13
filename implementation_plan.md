@@ -13,7 +13,9 @@ The **MPU6500** is a 6-axis IMU (3-axis gyro + 3-axis accel). It does NOT have a
 **Fusion formula**: `fusedYaw = α × (fusedYaw + gyroZ × dt) + (1 − α) × compassHeading`  
 Where `α ≈ 0.95` trusts the gyro for short-term changes and the compass corrects long-term drift.
 
-## Proposed Changes
+## Implementation Notes
+
+Status: core firmware and shared HUD cleanup have been implemented on the Gyro branch; the remaining items below describe the final target state and verification path.
 
 ### IMU Module
 #### [NEW] [imu.h](file:///Volumes/Pasan_s_SSD/PlatformIO/Projects/4WD_Bluetooth/include/imu.h)
@@ -36,7 +38,7 @@ Where `α ≈ 0.95` trusts the gyro for short-term changes and the compass corre
 ### Firmware Updates
 #### [MODIFY] [main.cpp](file:///Volumes/Pasan_s_SSD/PlatformIO/Projects/4WD_Bluetooth/src/main.cpp)
 - Initialize MPU6500 in `setup()`, run gyro calibration
-- Replace `getHeading()` usage in the P-controller and precise turn with `getFusedHeading()`
+- Keep heading-lock and precise-turn behavior based on the fused heading path
 - Add `/imu` REST endpoint returning pitch, roll, gyroZ, fusedHeading, raw compass heading
 - Add `/imu_calibrate` endpoint to re-run gyro zeroing
 
@@ -45,7 +47,7 @@ Where `α ≈ 0.95` trusts the gyro for short-term changes and the compass corre
 ### Standalone HTML (Browser-Testable UI)
 #### [NEW] [ui_preview.html](file:///Volumes/Pasan_s_SSD/PlatformIO/Projects/4WD_Bluetooth/ui_preview.html)
 - Exact copy of the embedded UI HTML
-- Uses **mock data** (simulated heading, fake `/heading` and `/imu` responses) so it works standalone in Chrome
+- Uses **mock data** (simulated heading, fake `/imu` responses) so it works standalone in Chrome
 - **Workflow**: Edit `ui_preview.html` → preview in Chrome → once finalized, sync content into `web_ui.h`
 
 #### [MODIFY] [web_ui.h](file:///Volumes/Pasan_s_SSD/PlatformIO/Projects/4WD_Bluetooth/include/web_ui.h)
