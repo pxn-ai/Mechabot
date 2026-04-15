@@ -1,7 +1,7 @@
 #ifndef IMU_H
 #define IMU_H
 
-#include <MPU9250_WE.h>
+#include <MPU9250_WE.h>     // we need the MPU9250 header for the MPU6500
 
 // ══════════════════════════════════════════════════════════════
 // MPU6500 IMU (MPU9250 clone, gyro + accel only)
@@ -10,7 +10,7 @@
 
 #define MPU_ADDR 0x68
 
-MPU9250_WE imu = MPU9250_WE(MPU_ADDR);
+MPU6500_WE imu = MPU6500_WE(MPU_ADDR);
 bool imuReady = false;
 
 // Gyro-integrated yaw (raw, will drift — fused in compass.h)

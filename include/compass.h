@@ -32,6 +32,7 @@ bool fusionInitialized = false;
 // ──────────────────────────────────────────────
 bool compassSetup() {
     Wire.begin(COMPASS_SDA, COMPASS_SCL);
+    Wire.setClock(400000); // 400kHz I2C for faster reads
     if (!mag.begin()) {
         Serial.println("[COMPASS] HMC5983 NOT detected! Check I2C wiring.");
         return false;
