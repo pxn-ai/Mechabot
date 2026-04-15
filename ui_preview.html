@@ -114,7 +114,7 @@
             z-index: 1;
         }
 
-        /* ── Joystick Zones ── */
+        /* ── Side Control Pads ── */
         .control-zone {
             flex: 1;
             height: 100%;
@@ -141,17 +141,19 @@
         }
 
         .zone-label {
-            font-size: 0.8rem;
-            font-weight: 900;
-            letter-spacing: 5px;
+            position: absolute;
+            top: 18px;
+            left: 20px;
+            font-size: 0.62rem;
+            font-weight: 800;
+            letter-spacing: 2px;
             text-transform: uppercase;
-            writing-mode: vertical-rl;
-            color: rgba(255, 255, 255, 0.04);
+            color: rgba(255, 255, 255, 0.25);
             pointer-events: none;
         }
 
         .control-zone.active .zone-label {
-            color: rgba(255, 255, 255, 0.15);
+            color: rgba(255, 255, 255, 0.5);
         }
 
         .left-zone {
@@ -160,6 +162,72 @@
 
         .right-zone {
             border-left: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .nav-pad {
+            width: min(240px, 82%);
+            max-width: 240px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            padding: 8px;
+            margin-top: 16px;
+        }
+
+        .nav-btn {
+            height: 58px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(0, 0, 0, 0.28);
+            color: rgba(255, 255, 255, 0.76);
+            font-size: 0.82rem;
+            font-weight: 800;
+            cursor: pointer;
+            outline: none;
+            transition: transform 0.12s, border-color 0.12s, background 0.12s, box-shadow 0.12s;
+        }
+
+        .nav-btn:active,
+        .nav-btn.active {
+            transform: scale(0.96);
+        }
+
+        .nav-btn.linear {
+            border-color: rgba(0, 240, 255, 0.22);
+            color: rgba(0, 240, 255, 0.95);
+        }
+
+        .nav-btn.linear.active {
+            background: rgba(0, 240, 255, 0.16);
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.18);
+        }
+
+        .nav-btn.rotate {
+            border-color: rgba(138, 43, 226, 0.25);
+            color: rgba(211, 163, 255, 0.95);
+        }
+
+        .nav-btn.rotate.active {
+            background: rgba(138, 43, 226, 0.18);
+            box-shadow: 0 0 20px rgba(138, 43, 226, 0.2);
+        }
+
+        .nav-btn.stop {
+            color: rgba(255, 255, 255, 0.72);
+            border-color: rgba(255, 255, 255, 0.18);
+        }
+
+        .nav-hint {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            font-size: 0.58rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.22);
+            text-align: center;
+            pointer-events: none;
         }
 
         /* ── Central HUD ── */
@@ -561,53 +629,6 @@
             background: rgba(138, 43, 226, 0.25);
         }
 
-        /* ── Joystick Visuals ── */
-        .stick-base {
-            position: absolute;
-            width: 130px;
-            height: 130px;
-            border-radius: 50%;
-            border: 2px dashed rgba(255, 255, 255, 0.12);
-            background: radial-gradient(circle, rgba(255, 255, 255, 0.015) 20%, transparent 60%);
-            transform: translate(-50%, -50%);
-            display: none;
-            pointer-events: none;
-            z-index: 10;
-        }
-
-        .stick-core {
-            position: absolute;
-            width: 54px;
-            height: 54px;
-            border-radius: 50%;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-        }
-
-        #baseL .stick-core {
-            background: radial-gradient(circle at 35% 35%, #fff, var(--accent-cyan));
-            box-shadow: 0 0 25px rgba(0, 240, 255, 0.4);
-        }
-
-        #baseR .stick-core {
-            background: radial-gradient(circle at 35% 35%, #fff, var(--accent-violet));
-            box-shadow: 0 0 25px rgba(138, 43, 226, 0.4);
-        }
-
-        .pulse-wave {
-            position: absolute;
-            inset: 0;
-            border-radius: 50%;
-            border: 2px solid var(--accent-cyan);
-            opacity: 0;
-            pointer-events: none;
-        }
-
-        .emitting .pulse-wave {
-            animation: emitPulse 1s ease-out infinite;
-        }
-
         body.driving .hud-center {
             box-shadow: 0 0 50px rgba(0, 240, 255, 0.12);
         }
@@ -678,6 +699,18 @@
         <!-- LEFT: TRANSLATE -->
         <div class="control-zone left-zone" id="zoneL">
             <div class="zone-label">Translate</div>
+            <div class="nav-pad" id="linearPad">
+                <button class="nav-btn linear" data-vx="-0.7" data-vy="0.7">↖</button>
+                <button class="nav-btn linear" data-vx="0" data-vy="1">↑</button>
+                <button class="nav-btn linear" data-vx="0.7" data-vy="0.7">↗</button>
+                <button class="nav-btn linear" data-vx="-1" data-vy="0">←</button>
+                <button class="nav-btn stop" id="linearStop">⏹</button>
+                <button class="nav-btn linear" data-vx="1" data-vy="0">→</button>
+                <button class="nav-btn linear" data-vx="-0.7" data-vy="-0.7">↙</button>
+                <button class="nav-btn linear" data-vx="0" data-vy="-1">↓</button>
+                <button class="nav-btn linear" data-vx="0.7" data-vy="-0.7">↘</button>
+            </div>
+            <div class="nav-hint">8-way cruise translation</div>
         </div>
 
         <!-- CENTER HUD -->
@@ -770,28 +803,30 @@
         <!-- RIGHT: YAW -->
         <div class="control-zone right-zone" id="zoneR">
             <div class="zone-label">Rotation</div>
+            <div class="nav-pad" id="rotationPad">
+                <button class="nav-btn rotate" data-wz="-1.0">↺3</button>
+                <button class="nav-btn rotate" data-wz="-0.7">↺2</button>
+                <button class="nav-btn rotate" data-wz="1.0">↻3</button>
+                <button class="nav-btn rotate" data-wz="-0.5">↺1</button>
+                <button class="nav-btn stop" id="rotationStop">⏹</button>
+                <button class="nav-btn rotate" data-wz="0.5">↻1</button>
+                <button class="nav-btn rotate" data-wz="-0.3">↺F</button>
+                <button class="nav-btn rotate" data-wz="0.0">•</button>
+                <button class="nav-btn rotate" data-wz="0.3">↻F</button>
+            </div>
+            <div class="nav-hint">8-step rotation intensity</div>
         </div>
-    </div>
-
-    <!-- Joystick visuals -->
-    <div class="stick-base" id="baseL">
-        <div class="pulse-wave"></div>
-        <div class="stick-core" id="nubL"></div>
-    </div>
-    <div class="stick-base" id="baseR">
-        <div class="pulse-wave"></div>
-        <div class="stick-core" id="nubR"></div>
     </div>
 
     <script>
         // ══ CONFIG ══
         const MOCK = (location.protocol === 'file:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1');
-        const J_RADIUS = 60;
-        let vx = 0, vy = 0, wz = 0, cruiseMode = false, activePointers = {};
+        let vx = 0, vy = 0, wz = 0, cruiseMode = false;
 
         const $ = id => document.getElementById(id);
-        const baseL = $('baseL'), nubL = $('nubL'), baseR = $('baseR'), nubR = $('nubR');
         const zoneL = $('zoneL'), zoneR = $('zoneR');
+        const linearPad = $('linearPad');
+        const rotationPad = $('rotationPad');
         let lastSent = "";
 
         // ══ MOCK DATA (for Chrome preview) ══
@@ -833,7 +868,10 @@
             vx = 0; vy = 0; wz = 0; cruiseMode = false;
             $('btnCruise').classList.remove('active');
             if (!MOCK) fetch('/stop').catch(() => { });
-            endStick(baseL, nubL, zoneL); endStick(baseR, nubR, zoneR);
+            linearPad.querySelectorAll('.nav-btn.linear').forEach(btn => btn.classList.remove('active'));
+            rotationPad.querySelectorAll('.nav-btn.rotate').forEach(btn => btn.classList.remove('active'));
+            zoneL.classList.remove('active');
+            zoneR.classList.remove('active');
         };
         window.toggleCruise = () => { cruiseMode = !cruiseMode; $('btnCruise').classList.toggle('active', cruiseMode); };
         window.toggleCompass = () => { api('/compass_toggle', d => { $('btnCompass').classList.toggle('active', d.compass); }); };
@@ -851,43 +889,92 @@
             api('/set_pid?' + q);
         };
 
-        // ══ JOYSTICKS ══
-        function startStick(base, zone, x, y) {
-            base.style.display = 'block'; base.style.left = x + 'px'; base.style.top = y + 'px';
-            nubL.style.transition = 'none'; nubR.style.transition = 'none';
-            zone.classList.add('active'); base.classList.add('emitting');
-        }
-        function endStick(base, nub, zone) {
-            base.classList.remove('emitting'); base.style.display = 'none';
-            nub.style.transition = 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)';
-            nub.style.transform = 'translate(-50%, -50%)';
-            zone.classList.remove('active');
+        // ══ DIRECTION PADS ══
+        function clearLinearPad() {
+            linearPad.querySelectorAll('.nav-btn.linear').forEach(btn => btn.classList.remove('active'));
         }
 
-        document.body.addEventListener('pointerdown', e => {
-            if (e.target.closest('.hud-center')) return; // Don't hijack HUD clicks
-            let isLeft = e.clientX < window.innerWidth / 2;
-            startStick(isLeft ? baseL : baseR, isLeft ? zoneL : zoneR, e.clientX, e.clientY);
-            activePointers[e.pointerId] = { left: isLeft, sx: e.clientX, sy: e.clientY };
-            e.target.setPointerCapture(e.pointerId);
-        });
-        document.body.addEventListener('pointermove', e => {
-            let p = activePointers[e.pointerId]; if (!p) return;
-            let dx = e.clientX - p.sx, dy = e.clientY - p.sy;
-            let dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist > J_RADIUS) { dx = (dx / dist) * J_RADIUS; dy = (dy / dist) * J_RADIUS; }
-            (p.left ? nubL : nubR).style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
-            if (p.left) { vx = dx / J_RADIUS; vy = -dy / J_RADIUS; }
-            else { wz = dx / J_RADIUS; }
-        });
-        function pEnd(e) {
-            let p = activePointers[e.pointerId]; if (!p) return;
-            endStick(p.left ? baseL : baseR, p.left ? nubL : nubR, p.left ? zoneL : zoneR);
-            if (!cruiseMode || !p.left) { if (p.left) { vx = 0; vy = 0; } else { wz = 0; } }
-            delete activePointers[e.pointerId];
+        function clearRotationPad() {
+            rotationPad.querySelectorAll('.nav-btn.rotate').forEach(btn => btn.classList.remove('active'));
         }
-        document.body.addEventListener('pointerup', pEnd);
-        document.body.addEventListener('pointercancel', pEnd);
+
+        function setLinear(vxCmd, vyCmd, sourceBtn) {
+            vx = vxCmd;
+            vy = vyCmd;
+            zoneL.classList.add('active');
+            clearLinearPad();
+            if (sourceBtn) sourceBtn.classList.add('active');
+        }
+
+        function stopLinear() {
+            vx = 0;
+            vy = 0;
+            zoneL.classList.remove('active');
+            clearLinearPad();
+        }
+
+        function setRotation(wzCmd, sourceBtn) {
+            wz = wzCmd;
+            if (wzCmd === 0) {
+                zoneR.classList.remove('active');
+                clearRotationPad();
+                return;
+            }
+            zoneR.classList.add('active');
+            clearRotationPad();
+            if (sourceBtn) sourceBtn.classList.add('active');
+        }
+
+        function stopRotation() {
+            wz = 0;
+            zoneR.classList.remove('active');
+            clearRotationPad();
+        }
+
+        linearPad.querySelectorAll('.nav-btn.linear').forEach(btn => {
+            const vxCmd = parseFloat(btn.dataset.vx);
+            const vyCmd = parseFloat(btn.dataset.vy);
+            btn.addEventListener('pointerdown', e => {
+                e.preventDefault();
+                setLinear(vxCmd, vyCmd, btn);
+            });
+            btn.addEventListener('pointerup', e => {
+                e.preventDefault();
+                if (!cruiseMode) stopLinear();
+            });
+            btn.addEventListener('pointercancel', () => {
+                if (!cruiseMode) stopLinear();
+            });
+            btn.addEventListener('pointerleave', () => {
+                if (!cruiseMode) stopLinear();
+            });
+            btn.addEventListener('lostpointercapture', () => {
+                if (!cruiseMode) stopLinear();
+            });
+        });
+
+        rotationPad.querySelectorAll('.nav-btn.rotate').forEach(btn => {
+            const wzCmd = parseFloat(btn.dataset.wz);
+            btn.addEventListener('pointerdown', e => {
+                e.preventDefault();
+                setRotation(wzCmd, btn);
+            });
+            btn.addEventListener('pointerup', e => {
+                e.preventDefault();
+                stopRotation();
+            });
+            btn.addEventListener('pointercancel', stopRotation);
+            btn.addEventListener('pointerleave', stopRotation);
+            btn.addEventListener('lostpointercapture', stopRotation);
+        });
+
+        $('linearStop').addEventListener('click', () => {
+            stopLinear();
+        });
+
+        $('rotationStop').addEventListener('click', () => {
+            stopRotation();
+        });
 
         // ══ TELEMETRY ══
         setInterval(() => {
