@@ -202,16 +202,6 @@
             box-shadow: 0 0 20px rgba(0, 240, 255, 0.18);
         }
 
-        .nav-btn.rotate {
-            border-color: rgba(138, 43, 226, 0.25);
-            color: rgba(211, 163, 255, 0.95);
-        }
-
-        .nav-btn.rotate.active {
-            background: rgba(138, 43, 226, 0.18);
-            box-shadow: 0 0 20px rgba(138, 43, 226, 0.2);
-        }
-
         .nav-btn.stop {
             color: rgba(255, 255, 255, 0.72);
             border-color: rgba(255, 255, 255, 0.18);
@@ -228,6 +218,172 @@
             color: rgba(255, 255, 255, 0.22);
             text-align: center;
             pointer-events: none;
+        }
+
+        .turn-dial-wrap {
+            width: min(250px, 85%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+            margin-top: 10px;
+        }
+
+        .turn-dial {
+            width: min(240px, 70vw);
+            aspect-ratio: 1;
+            border-radius: 50%;
+            position: relative;
+            display: grid;
+            place-items: center;
+            touch-action: none;
+            -webkit-user-select: none;
+            user-select: none;
+            cursor: grab;
+        }
+
+        .turn-dial:active {
+            cursor: grabbing;
+        }
+
+        .turn-dial::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(138, 43, 226, 0.18) 0%, rgba(0, 0, 0, 0.18) 58%, transparent 61%),
+                conic-gradient(from 270deg, rgba(138, 43, 226, 0.95) 0deg, rgba(138, 43, 226, 0.95) var(--turn-progress, 0deg), rgba(255, 255, 255, 0.06) var(--turn-progress, 0deg), rgba(255, 255, 255, 0.06) 360deg);
+            -webkit-mask: radial-gradient(circle, transparent 58%, #000 59%);
+            mask: radial-gradient(circle, transparent 58%, #000 59%);
+        }
+
+        .turn-dial::after {
+            content: '';
+            position: absolute;
+            inset: 16px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: inset 0 0 28px rgba(138, 43, 226, 0.1);
+        }
+
+        .turn-dial-track {
+            position: absolute;
+            inset: 12px;
+            border-radius: 50%;
+            background: radial-gradient(circle at center, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.25));
+            border: 2px solid rgba(255, 255, 255, 0.08);
+            box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.45);
+        }
+
+        .turn-dial-progress {
+            position: absolute;
+            inset: 12px;
+            border-radius: 50%;
+            background: conic-gradient(from 270deg, rgba(138, 43, 226, 0.95) 0deg, rgba(138, 43, 226, 0.95) var(--turn-progress, 0deg), rgba(255, 255, 255, 0.06) var(--turn-progress, 0deg), rgba(255, 255, 255, 0.06) 360deg);
+            -webkit-mask: radial-gradient(circle, transparent 61%, #000 62%);
+            mask: radial-gradient(circle, transparent 61%, #000 62%);
+            pointer-events: none;
+        }
+
+        .turn-dial-scale {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        .turn-dial-scale .minor {
+            stroke: rgba(255, 255, 255, 0.2);
+            stroke-width: 2;
+            stroke-linecap: round;
+        }
+
+        .turn-dial-scale .major {
+            stroke: rgba(255, 255, 255, 0.5);
+            stroke-width: 3;
+            stroke-linecap: round;
+        }
+
+        .turn-dial-scale .label {
+            fill: rgba(255, 255, 255, 0.7);
+            font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+            font-size: 15px;
+            font-weight: 800;
+            text-anchor: middle;
+            dominant-baseline: middle;
+        }
+
+        .turn-dial-knob {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 18px;
+            height: 18px;
+            margin-left: -9px;
+            margin-top: -9px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 0 18px rgba(138, 43, 226, 0.45);
+            transform: rotate(var(--turn-angle, 0deg)) translateY(-92px);
+            transform-origin: center center;
+            pointer-events: none;
+        }
+
+        .turn-dial-center {
+            position: relative;
+            z-index: 2;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            background: rgba(0, 0, 0, 0.38);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            -webkit-backdrop-filter: blur(8px);
+            backdrop-filter: blur(8px);
+        }
+
+        .turn-angle-value {
+            font-size: 2.3rem;
+            line-height: 1;
+            font-weight: 900;
+            color: #fff;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -1px;
+        }
+
+        .turn-angle-label {
+            margin-top: 6px;
+            font-size: 0.6rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.35);
+        }
+
+        .turn-rotate-btn {
+            width: min(200px, 70%);
+            padding: 14px 16px;
+            border-radius: 14px;
+            border: 1px solid rgba(138, 43, 226, 0.3);
+            background: rgba(138, 43, 226, 0.16);
+            color: rgba(255, 255, 255, 0.96);
+            font-size: 0.9rem;
+            font-weight: 900;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            cursor: pointer;
+            outline: none;
+            transition: transform 0.12s, background 0.12s, box-shadow 0.12s;
+        }
+
+        .turn-rotate-btn:active {
+            transform: scale(0.96);
+            background: rgba(138, 43, 226, 0.28);
+            box-shadow: 0 0 20px rgba(138, 43, 226, 0.2);
         }
 
         /* ── Central HUD ── */
@@ -803,18 +959,22 @@
         <!-- RIGHT: YAW -->
         <div class="control-zone right-zone" id="zoneR">
             <div class="zone-label">Rotation</div>
-            <div class="nav-pad" id="rotationPad">
-                <button class="nav-btn rotate" data-wz="-1.0">↺3</button>
-                <button class="nav-btn rotate" data-wz="-0.7">↺2</button>
-                <button class="nav-btn rotate" data-wz="1.0">↻3</button>
-                <button class="nav-btn rotate" data-wz="-0.5">↺1</button>
-                <button class="nav-btn stop" id="rotationStop">⏹</button>
-                <button class="nav-btn rotate" data-wz="0.5">↻1</button>
-                <button class="nav-btn rotate" data-wz="-0.3">↺F</button>
-                <button class="nav-btn rotate" data-wz="0.0">•</button>
-                <button class="nav-btn rotate" data-wz="0.3">↻F</button>
+            <div class="turn-dial-wrap">
+                <div class="turn-dial" id="turnDial" role="slider" tabindex="0" aria-label="Rotation angle dial"
+                    aria-valuemin="-180" aria-valuemax="180" aria-valuenow="0" aria-valuetext="0 degrees">
+                    <div class="turn-dial-track"></div>
+                    <div class="turn-dial-progress"></div>
+                    <svg class="turn-dial-scale" id="turnDialScale" viewBox="-120 -120 240 240"
+                        aria-hidden="true"></svg>
+                    <div class="turn-dial-knob"></div>
+                    <div class="turn-dial-center">
+                        <div class="turn-angle-value" id="turnAngleValue">0</div>
+                        <div class="turn-angle-label">Degrees</div>
+                    </div>
+                </div>
+                <button class="turn-rotate-btn" id="rotateBtn" type="button">Rotate</button>
+                <div class="turn-reset-note">Drag, then press Rotate</div>
             </div>
-            <div class="nav-hint">8-step rotation intensity</div>
         </div>
     </div>
 
@@ -826,8 +986,13 @@
         const $ = id => document.getElementById(id);
         const zoneL = $('zoneL'), zoneR = $('zoneR');
         const linearPad = $('linearPad');
-        const rotationPad = $('rotationPad');
+        const turnDial = $('turnDial');
+        const turnDialScale = $('turnDialScale');
+        const turnAngleValue = $('turnAngleValue');
+        const rotateBtn = $('rotateBtn');
         let lastSent = "";
+        let turnAngle = 0;
+        let dialDragging = false;
 
         // ══ MOCK DATA (for Chrome preview) ══
         let mockHeading = 0;
@@ -869,9 +1034,9 @@
             $('btnCruise').classList.remove('active');
             if (!MOCK) fetch('/stop').catch(() => { });
             linearPad.querySelectorAll('.nav-btn.linear').forEach(btn => btn.classList.remove('active'));
-            rotationPad.querySelectorAll('.nav-btn.rotate').forEach(btn => btn.classList.remove('active'));
             zoneL.classList.remove('active');
             zoneR.classList.remove('active');
+            resetTurnDial();
         };
         window.toggleCruise = () => { cruiseMode = !cruiseMode; $('btnCruise').classList.toggle('active', cruiseMode); };
         window.toggleCompass = () => { api('/compass_toggle', d => { $('btnCompass').classList.toggle('active', d.compass); }); };
@@ -894,10 +1059,6 @@
             linearPad.querySelectorAll('.nav-btn.linear').forEach(btn => btn.classList.remove('active'));
         }
 
-        function clearRotationPad() {
-            rotationPad.querySelectorAll('.nav-btn.rotate').forEach(btn => btn.classList.remove('active'));
-        }
-
         function setLinear(vxCmd, vyCmd, sourceBtn) {
             vx = vxCmd;
             vy = vyCmd;
@@ -913,22 +1074,96 @@
             clearLinearPad();
         }
 
-        function setRotation(wzCmd, sourceBtn) {
-            wz = wzCmd;
-            if (wzCmd === 0) {
-                zoneR.classList.remove('active');
-                clearRotationPad();
-                return;
-            }
-            zoneR.classList.add('active');
-            clearRotationPad();
-            if (sourceBtn) sourceBtn.classList.add('active');
+        function clampTurnAngle(value) {
+            if (value > 180) return 180;
+            if (value < -180) return -180;
+            return value;
         }
 
-        function stopRotation() {
+        function updateTurnDial(value) {
+            turnAngle = clampTurnAngle(value);
+            const signedAngle = Number.isInteger(turnAngle) ? turnAngle : Math.round(turnAngle);
+            const progress = Math.abs(turnAngle);
+            turnDial.style.setProperty('--turn-angle', `${turnAngle}deg`);
+            turnDial.style.setProperty('--turn-progress', `${progress}deg`);
+            turnAngleValue.textContent = `${signedAngle}`;
+            turnDial.setAttribute('aria-valuenow', `${signedAngle}`);
+            turnDial.setAttribute('aria-valuetext', `${signedAngle} degrees`);
+            zoneR.classList.toggle('active', turnAngle !== 0);
+        }
+
+        function resetTurnDial() {
+            turnAngle = 0;
+            dialDragging = false;
             wz = 0;
-            zoneR.classList.remove('active');
-            clearRotationPad();
+            updateTurnDial(0);
+        }
+
+        function buildTurnDialScale() {
+            const SVG_NS = 'http://www.w3.org/2000/svg';
+            const outerMinor = 112;
+            const innerMinor = 102;
+            const outerMajor = 112;
+            const innerMajor = 96;
+
+            for (let deg = 0; deg < 360; deg += 15) {
+                const rad = (deg - 90) * Math.PI / 180;
+                const isMajor = deg % 45 === 0;
+                const outer = isMajor ? outerMajor : outerMinor;
+                const inner = isMajor ? innerMajor : innerMinor;
+                const line = document.createElementNS(SVG_NS, 'line');
+
+                line.setAttribute('x1', `${Math.cos(rad) * inner}`);
+                line.setAttribute('y1', `${Math.sin(rad) * inner}`);
+                line.setAttribute('x2', `${Math.cos(rad) * outer}`);
+                line.setAttribute('y2', `${Math.sin(rad) * outer}`);
+                line.setAttribute('class', isMajor ? 'major' : 'minor');
+                turnDialScale.appendChild(line);
+            }
+
+            const labels = [
+                { value: 0, text: '0' },
+                { value: 45, text: '45' },
+                { value: 90, text: '90' },
+                { value: 135, text: '135' },
+                { value: 180, text: '180' },
+                { value: -135, text: '-135' },
+                { value: -90, text: '-90' },
+                { value: -45, text: '-45' }
+            ];
+
+            const labelRadius = 86;
+            labels.forEach(({ value, text }) => {
+                const normalized = value < 0 ? value + 360 : value;
+                const rad = (normalized - 90) * Math.PI / 180;
+                const node = document.createElementNS(SVG_NS, 'text');
+
+                node.setAttribute('x', `${Math.cos(rad) * labelRadius}`);
+                node.setAttribute('y', `${Math.sin(rad) * labelRadius}`);
+                node.setAttribute('class', 'label');
+                node.textContent = text;
+                turnDialScale.appendChild(node);
+            });
+        }
+
+        function angleFromPointer(event) {
+            const rect = turnDial.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            const dx = event.clientX - centerX;
+            const dy = event.clientY - centerY;
+            const degrees = Math.atan2(dy, dx) * 180 / Math.PI + 90;
+            return ((degrees + 180) % 360) - 180;
+        }
+
+        function sendTurnCommand() {
+            const angle = Math.round(turnAngle);
+            if (angle === 0) {
+                resetTurnDial();
+                return;
+            }
+            if (!MOCK) fetch(`/turn_angle?angle=${angle}`).catch(() => { });
+            resetTurnDial();
         }
 
         linearPad.querySelectorAll('.nav-btn.linear').forEach(btn => {
@@ -953,28 +1188,50 @@
             });
         });
 
-        rotationPad.querySelectorAll('.nav-btn.rotate').forEach(btn => {
-            const wzCmd = parseFloat(btn.dataset.wz);
-            btn.addEventListener('pointerdown', e => {
-                e.preventDefault();
-                setRotation(wzCmd, btn);
-            });
-            btn.addEventListener('pointerup', e => {
-                e.preventDefault();
-                stopRotation();
-            });
-            btn.addEventListener('pointercancel', stopRotation);
-            btn.addEventListener('pointerleave', stopRotation);
-            btn.addEventListener('lostpointercapture', stopRotation);
+        turnDial.addEventListener('pointerdown', e => {
+            e.preventDefault();
+            dialDragging = true;
+            turnDial.setPointerCapture(e.pointerId);
+            updateTurnDial(angleFromPointer(e));
         });
+
+        turnDial.addEventListener('pointermove', e => {
+            if (!dialDragging) return;
+            updateTurnDial(angleFromPointer(e));
+        });
+
+        turnDial.addEventListener('pointerup', e => {
+            if (!dialDragging) return;
+            dialDragging = false;
+            turnDial.releasePointerCapture(e.pointerId);
+        });
+
+        turnDial.addEventListener('pointercancel', () => {
+            dialDragging = false;
+        });
+
+        turnDial.addEventListener('keydown', e => {
+            if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                updateTurnDial(turnAngle - 5);
+            } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                updateTurnDial(turnAngle + 5);
+            } else if (e.key === 'Home') {
+                e.preventDefault();
+                resetTurnDial();
+            }
+        });
+
+        rotateBtn.addEventListener('click', sendTurnCommand);
+
+        buildTurnDialScale();
 
         $('linearStop').addEventListener('click', () => {
             stopLinear();
         });
 
-        $('rotationStop').addEventListener('click', () => {
-            stopRotation();
-        });
+        resetTurnDial();
 
         // ══ TELEMETRY ══
         setInterval(() => {

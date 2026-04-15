@@ -1,7 +1,1276 @@
-#ifndef WEB_UI_H
-#define WEB_UI_H
+#pragma once
 
-const char index_html[] PROGMEM = R"rawliteral(
-)rawliteral";
+const char WEB_UI[] PROGMEM = R"rawliteral(
+<!DOCTYPE html>
+<html lang="en">
 
-#endif // WEB_UI_H
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Mecanum HUD Core</title>
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-void: #03050a;
+            --accent-cyan: #00f0ff;
+            --accent-violet: #8a2be2;
+            --danger-red: #ff2a55;
+            --tech-green: #39ff14;
+            --amber: #ffb800;
+            --glass-bg: rgba(10, 15, 30, 0.4);
+            --glass-border: rgba(0, 240, 255, 0.15);
+        }
+
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-void);
+            color: #fff;
+            font-family: 'SF Pro Display', -apple-system, sans-serif;
+            overflow: hidden;
+            touch-action: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        /* ── Cosmic BG ── */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: -50%;
+            z-index: -2;
+            background: radial-gradient(circle at 50% 50%, rgba(0, 240, 255, 0.04) 0%, transparent 40%),
+                radial-gradient(circle at 80% 20%, rgba(138, 43, 226, 0.04) 0%, transparent 30%);
+            animation: cosmicRotate 30s linear infinite;
+        }
+
+        @keyframes cosmicRotate {
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes breathTech {
+
+            0%,
+            100% {
+                opacity: 0.3;
+            }
+
+            50% {
+                opacity: 1;
+            }
+        }
+
+        @keyframes lineBreath {
+            0% {
+                opacity: 0.1;
+            }
+
+            100% {
+                opacity: 0.5;
+            }
+        }
+
+        @keyframes spinRev {
+            100% {
+                transform: rotate(-360deg);
+            }
+        }
+
+        @keyframes emitPulse {
+            0% {
+                transform: scale(1);
+                opacity: 0.6;
+            }
+
+            100% {
+                transform: scale(2.5);
+                opacity: 0;
+            }
+        }
+
+        @keyframes textGlow {
+            0% {
+                filter: brightness(1);
+            }
+
+            100% {
+                filter: brightness(1.3);
+            }
+        }
+
+        /* ── 3-Column Layout ── */
+        .layout {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ── Side Control Pads ── */
+        .control-zone {
+            flex: 1;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .control-zone::after {
+            content: '';
+            position: absolute;
+            inset: 16px;
+            border: 1px dashed rgba(255, 255, 255, 0.03);
+            border-radius: 24px;
+            pointer-events: none;
+            transition: all 0.3s;
+        }
+
+        .control-zone.active::after {
+            border-style: solid;
+            border-color: rgba(255, 255, 255, 0.08);
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.015) 0%, transparent 70%);
+        }
+
+        .zone-label {
+            position: absolute;
+            top: 18px;
+            left: 20px;
+            font-size: 0.62rem;
+            font-weight: 800;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.25);
+            pointer-events: none;
+        }
+
+        .control-zone.active .zone-label {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .left-zone {
+            border-right: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .right-zone {
+            border-left: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .nav-pad {
+            width: min(240px, 82%);
+            max-width: 240px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            padding: 8px;
+            margin-top: 16px;
+        }
+
+        .nav-btn {
+            height: 58px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(0, 0, 0, 0.28);
+            color: rgba(255, 255, 255, 0.76);
+            font-size: 0.82rem;
+            font-weight: 800;
+            cursor: pointer;
+            outline: none;
+            transition: transform 0.12s, border-color 0.12s, background 0.12s, box-shadow 0.12s;
+        }
+
+        .nav-btn:active,
+        .nav-btn.active {
+            transform: scale(0.96);
+        }
+
+        .nav-btn.linear {
+            border-color: rgba(0, 240, 255, 0.22);
+            color: rgba(0, 240, 255, 0.95);
+        }
+
+        .nav-btn.linear.active {
+            background: rgba(0, 240, 255, 0.16);
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.18);
+        }
+
+        .nav-btn.stop {
+            color: rgba(255, 255, 255, 0.72);
+            border-color: rgba(255, 255, 255, 0.18);
+        }
+
+        .nav-hint {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            font-size: 0.58rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.22);
+            text-align: center;
+            pointer-events: none;
+        }
+
+        .turn-dial-wrap {
+            width: min(250px, 85%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+            margin-top: 10px;
+        }
+
+        .turn-dial {
+            width: min(240px, 70vw);
+            aspect-ratio: 1;
+            border-radius: 50%;
+            position: relative;
+            display: grid;
+            place-items: center;
+            touch-action: none;
+            -webkit-user-select: none;
+            user-select: none;
+            cursor: grab;
+        }
+
+        .turn-dial:active {
+            cursor: grabbing;
+        }
+
+        .turn-dial::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(138, 43, 226, 0.18) 0%, rgba(0, 0, 0, 0.18) 58%, transparent 61%),
+                conic-gradient(from 270deg, rgba(138, 43, 226, 0.95) 0deg, rgba(138, 43, 226, 0.95) var(--turn-progress, 0deg), rgba(255, 255, 255, 0.06) var(--turn-progress, 0deg), rgba(255, 255, 255, 0.06) 360deg);
+            -webkit-mask: radial-gradient(circle, transparent 58%, #000 59%);
+            mask: radial-gradient(circle, transparent 58%, #000 59%);
+        }
+
+        .turn-dial::after {
+            content: '';
+            position: absolute;
+            inset: 16px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: inset 0 0 28px rgba(138, 43, 226, 0.1);
+        }
+
+        .turn-dial-track {
+            position: absolute;
+            inset: 12px;
+            border-radius: 50%;
+            background: radial-gradient(circle at center, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.25));
+            border: 2px solid rgba(255, 255, 255, 0.08);
+            box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.45);
+        }
+
+        .turn-dial-progress {
+            position: absolute;
+            inset: 12px;
+            border-radius: 50%;
+            background: conic-gradient(from 270deg, rgba(138, 43, 226, 0.95) 0deg, rgba(138, 43, 226, 0.95) var(--turn-progress, 0deg), rgba(255, 255, 255, 0.06) var(--turn-progress, 0deg), rgba(255, 255, 255, 0.06) 360deg);
+            -webkit-mask: radial-gradient(circle, transparent 61%, #000 62%);
+            mask: radial-gradient(circle, transparent 61%, #000 62%);
+            pointer-events: none;
+        }
+
+        .turn-dial-scale {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        .turn-dial-scale .minor {
+            stroke: rgba(255, 255, 255, 0.2);
+            stroke-width: 2;
+            stroke-linecap: round;
+        }
+
+        .turn-dial-scale .major {
+            stroke: rgba(255, 255, 255, 0.5);
+            stroke-width: 3;
+            stroke-linecap: round;
+        }
+
+        .turn-dial-scale .label {
+            fill: rgba(255, 255, 255, 0.7);
+            font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+            font-size: 15px;
+            font-weight: 800;
+            text-anchor: middle;
+            dominant-baseline: middle;
+        }
+
+        .turn-dial-knob {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 18px;
+            height: 18px;
+            margin-left: -9px;
+            margin-top: -9px;
+            border-radius: 50%;
+            background: #fff;
+            box-shadow: 0 0 18px rgba(138, 43, 226, 0.45);
+            transform: rotate(var(--turn-angle, 0deg)) translateY(-92px);
+            transform-origin: center center;
+            pointer-events: none;
+        }
+
+        .turn-dial-center {
+            position: relative;
+            z-index: 2;
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            background: rgba(0, 0, 0, 0.38);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            -webkit-backdrop-filter: blur(8px);
+            backdrop-filter: blur(8px);
+        }
+
+        .turn-angle-value {
+            font-size: 2.3rem;
+            line-height: 1;
+            font-weight: 900;
+            color: #fff;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -1px;
+        }
+
+        .turn-angle-label {
+            margin-top: 6px;
+            font-size: 0.6rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.35);
+        }
+
+        .turn-rotate-btn {
+            width: min(200px, 70%);
+            padding: 14px 16px;
+            border-radius: 14px;
+            border: 1px solid rgba(138, 43, 226, 0.3);
+            background: rgba(138, 43, 226, 0.16);
+            color: rgba(255, 255, 255, 0.96);
+            font-size: 0.9rem;
+            font-weight: 900;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            cursor: pointer;
+            outline: none;
+            transition: transform 0.12s, background 0.12s, box-shadow 0.12s;
+        }
+
+        .turn-rotate-btn:active {
+            transform: scale(0.96);
+            background: rgba(138, 43, 226, 0.28);
+            box-shadow: 0 0 20px rgba(138, 43, 226, 0.2);
+        }
+
+        /* ── Central HUD ── */
+        .hud-center {
+            width: 300px;
+            min-width: 280px;
+            height: 100%;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px 12px;
+            position: relative;
+            overflow-y: auto;
+            overflow-x: hidden;
+            background: linear-gradient(to right, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.3));
+            box-shadow: 0 0 40px rgba(0, 0, 0, 0.7);
+            -ms-overflow-style: none;
+        }
+
+        .hud-center::-webkit-scrollbar {
+            display: none;
+        }
+
+        .hud-title {
+            font-size: 0.8rem;
+            font-weight: 900;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-violet));
+            -webkit-background-clip: text;
+            color: transparent;
+            margin-bottom: 2px;
+            animation: textGlow 2s ease-in-out infinite alternate;
+        }
+
+        .status-txt {
+            font-size: 0.5rem;
+            font-weight: 700;
+            color: rgba(255, 255, 255, 0.35);
+            letter-spacing: 1px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .status-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: var(--tech-green);
+            box-shadow: 0 0 8px var(--tech-green);
+            animation: breathTech 2s infinite;
+        }
+
+        /* ── HUD Module ── */
+        .hud-module {
+            width: 100%;
+            border-radius: 12px;
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            padding: 10px;
+            margin-bottom: 8px;
+            -webkit-backdrop-filter: blur(8px);
+            backdrop-filter: blur(8px);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hud-module::before {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 10%;
+            width: 80%;
+            height: 1px;
+            background: var(--accent-cyan);
+            opacity: 0.2;
+            animation: lineBreath 3s infinite alternate;
+        }
+
+        .hud-module.compact {
+            padding: 8px;
+        }
+
+        .hud-module.controls-module {
+            padding: 8px;
+        }
+
+        .hud-module.pid-panel {
+            padding: 8px;
+        }
+
+        .module-label {
+            font-size: 0.45rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: rgba(255, 255, 255, 0.3);
+            margin-bottom: 6px;
+        }
+
+        .cal-badge {
+            text-align: center;
+            font-size: 0.4rem;
+            color: var(--danger-red);
+            font-weight: 800;
+            letter-spacing: 1px;
+            margin-top: 2px;
+        }
+
+        /* ── Compass ── */
+        .compass-ring {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.08);
+            position: relative;
+            background: radial-gradient(circle, rgba(0, 240, 255, 0.06), transparent);
+        }
+
+        .compass-ring::after {
+            content: '';
+            position: absolute;
+            inset: -4px;
+            border-radius: 50%;
+            border: 1px dashed rgba(0, 240, 255, 0.15);
+            animation: spinRev 20s linear infinite;
+        }
+
+        .compass-needle {
+            position: absolute;
+            top: 6px;
+            left: 50%;
+            width: 2px;
+            height: 52px;
+            margin-left: -1px;
+            pointer-events: none;
+            transition: transform 0.15s ease-out;
+            transform-origin: 50% 50%;
+        }
+
+        .compass-needle::before {
+            content: '';
+            display: block;
+            width: 100%;
+            height: 50%;
+            background: var(--danger-red);
+            box-shadow: 0 0 8px var(--danger-red);
+            border-radius: 2px;
+        }
+
+        .compass-needle::after {
+            content: '';
+            display: block;
+            width: 100%;
+            height: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 2px;
+        }
+
+        .heading-row {
+            display: flex;
+            justify-content: center;
+            align-items: baseline;
+            gap: 2px;
+            margin-top: 4px;
+        }
+
+        .heading-val {
+            font-size: 1.2rem;
+            font-weight: 900;
+            color: #fff;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .heading-unit {
+            font-size: 0.6rem;
+            color: var(--accent-cyan);
+        }
+
+        /* ── IMU Gauges ── */
+        .gauge-row {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .gauge {
+            text-align: center;
+            flex: 1;
+            padding: 4px;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .gauge-val {
+            font-size: 0.9rem;
+            font-weight: 900;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .gauge-lbl {
+            font-size: 0.4rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: rgba(255, 255, 255, 0.35);
+        }
+
+        .g-pitch .gauge-val {
+            color: var(--accent-cyan);
+        }
+
+        .g-roll .gauge-val {
+            color: var(--accent-violet);
+        }
+
+        .g-gyro .gauge-val {
+            color: var(--amber);
+        }
+
+        /* ── Buttons ── */
+        .switch-row {
+            display: flex;
+            gap: 6px;
+        }
+
+        .toggle-btn {
+            flex: 1;
+            padding: 8px 6px;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.55rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.15s;
+            position: relative;
+            overflow: hidden;
+            outline: none;
+        }
+
+        .toggle-btn.active {
+            background: rgba(0, 240, 255, 0.1);
+            border-color: var(--accent-cyan);
+            color: #fff;
+        }
+
+        .toggle-btn.active::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: var(--accent-cyan);
+        }
+
+        .toggle-btn:active {
+            transform: scale(0.93);
+        }
+
+        .toggle-btn.violet {
+            color: var(--accent-violet);
+            border-color: rgba(138, 43, 226, 0.2);
+        }
+
+        .toggle-btn.amber {
+            color: var(--amber);
+            border-color: rgba(255, 184, 0, 0.2);
+        }
+
+        .toggle-row.spaced {
+            margin-top: 6px;
+        }
+
+        .btn-stop {
+            width: 100%;
+            padding: 14px;
+            border-radius: 10px;
+            margin-top: 6px;
+            background: rgba(255, 42, 85, 0.1);
+            border: 1px solid rgba(255, 42, 85, 0.25);
+            color: var(--danger-red);
+            font-size: 0.9rem;
+            font-weight: 900;
+            letter-spacing: 4px;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: all 0.1s;
+            outline: none;
+        }
+
+        .btn-stop:active {
+            background: var(--danger-red);
+            color: #fff;
+            transform: scale(0.96);
+        }
+
+        /* ── Slider ── */
+        .slider-wrap {
+            width: 100%;
+            margin-bottom: 4px;
+        }
+
+        .slider-label {
+            font-size: 0.45rem;
+            color: rgba(255, 255, 255, 0.35);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            display: block;
+            text-align: center;
+            margin-bottom: 4px;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 3px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 2px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--accent-cyan);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--accent-cyan);
+        }
+
+        /* ── PID Tuning Panel ── */
+        .pid-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+
+        .pid-grid.tight {
+            margin-bottom: 8px;
+        }
+
+        .pid-field {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .pid-field label {
+            font-size: 0.4rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: rgba(255, 255, 255, 0.35);
+            margin-bottom: 2px;
+        }
+
+        .pid-field input {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            color: #fff;
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 6px;
+            text-align: center;
+            outline: none;
+            font-family: inherit;
+            width: 100%;
+        }
+
+        .pid-field input:focus {
+            border-color: var(--accent-cyan);
+        }
+
+        .pid-apply {
+            grid-column: span 2;
+            padding: 8px;
+            border-radius: 8px;
+            margin-top: 2px;
+            background: rgba(138, 43, 226, 0.12);
+            border: 1px solid rgba(138, 43, 226, 0.25);
+            color: var(--accent-violet);
+            font-size: 0.6rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .pid-apply:active {
+            transform: scale(0.95);
+            background: rgba(138, 43, 226, 0.25);
+        }
+
+        body.driving .hud-center {
+            box-shadow: 0 0 50px rgba(0, 240, 255, 0.12);
+        }
+
+        body.driving .hud-module {
+            border-color: rgba(0, 240, 255, 0.2);
+        }
+
+        /* ── Collapsible toggle ── */
+        .collapse-toggle {
+            width: 100%;
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.25);
+            font-size: 0.45rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            padding: 4px;
+            margin-bottom: 4px;
+            outline: none;
+        }
+
+        .collapse-toggle:active {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .collapsible {
+            transition: max-height 0.3s, opacity 0.3s;
+            overflow: hidden;
+        }
+
+        .collapsible.collapsed {
+            max-height: 0 !important;
+            opacity: 0;
+            margin: 0;
+            padding: 0;
+        }
+
+        @media (max-width: 700px) {
+            .hud-center {
+                width: 240px;
+                min-width: 220px;
+                padding: 8px;
+            }
+
+            .compass-ring {
+                width: 50px;
+                height: 50px;
+            }
+
+            .compass-needle {
+                top: 4px;
+                height: 42px;
+            }
+
+            .heading-val {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="layout">
+        <!-- LEFT: TRANSLATE -->
+        <div class="control-zone left-zone" id="zoneL">
+            <div class="zone-label">Translate</div>
+            <div class="nav-pad" id="linearPad">
+                <button class="nav-btn linear" data-vx="-0.7" data-vy="0.7">↖</button>
+                <button class="nav-btn linear" data-vx="0" data-vy="1">↑</button>
+                <button class="nav-btn linear" data-vx="0.7" data-vy="0.7">↗</button>
+                <button class="nav-btn linear" data-vx="-1" data-vy="0">←</button>
+                <button class="nav-btn stop" id="linearStop">⏹</button>
+                <button class="nav-btn linear" data-vx="1" data-vy="0">→</button>
+                <button class="nav-btn linear" data-vx="-0.7" data-vy="-0.7">↙</button>
+                <button class="nav-btn linear" data-vx="0" data-vy="-1">↓</button>
+                <button class="nav-btn linear" data-vx="0.7" data-vy="-0.7">↘</button>
+            </div>
+            <div class="nav-hint">8-way cruise translation</div>
+        </div>
+
+        <!-- CENTER HUD -->
+        <div class="hud-center">
+            <div class="hud-title">&#9889; Vector Core</div>
+            <div class="status-txt"><span class="status-dot"></span><span id="statusLbl">IDLE</span>&ensp;|&ensp;<span
+                    id="imuStatus">IMU:--</span></div>
+
+            <!-- Compass -->
+            <div class="hud-module">
+                <div class="compass-ring">
+                    <div class="compass-needle" id="needle"></div>
+                </div>
+                <div class="heading-row">
+                    <span class="heading-val" id="headingVal">0</span><span class="heading-unit">&deg;</span>
+                </div>
+                <div id="calBadge" class="cal-badge">NOT CALIBRATED</div>
+            </div>
+
+            <!-- IMU Gauges -->
+            <div class="hud-module">
+                <div class="module-label">IMU Telemetry</div>
+                <div class="gauge-row">
+                    <div class="gauge g-pitch">
+                        <div class="gauge-val" id="pitchVal">0.0</div>
+                        <div class="gauge-lbl">Pitch</div>
+                    </div>
+                    <div class="gauge g-roll">
+                        <div class="gauge-val" id="rollVal">0.0</div>
+                        <div class="gauge-lbl">Roll</div>
+                    </div>
+                    <div class="gauge g-gyro">
+                        <div class="gauge-val" id="gyroZVal">0.0</div>
+                        <div class="gauge-lbl">Gyro Z&deg;/s</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="hud-module controls-module">
+                <div class="switch-row">
+                    <button class="toggle-btn active" id="btnCompass" onclick="toggleCompass()">PA-Lock</button>
+                    <button class="toggle-btn" id="btnCruise" onclick="toggleCruise()">Cruise</button>
+                </div>
+                <div class="switch-row toggle-row spaced">
+                    <button class="toggle-btn violet" id="calBtn" onclick="startCalibration()">Cal Compass</button>
+                    <button class="toggle-btn amber" onclick="imuCal()">Cal Gyro</button>
+                </div>
+            </div>
+
+            <!-- Thrust -->
+            <div class="slider-wrap">
+                <label class="slider-label" for="speedSlider">Thrust Limit</label>
+                <input type="range" id="speedSlider" min="80" max="255" value="255" title="Thrust Limit">
+            </div>
+
+            <!-- PID Tuning (collapsible) -->
+            <button class="collapse-toggle" onclick="togglePID()">&#9660; PID Tuning</button>
+            <div class="hud-module pid-panel collapsible collapsed" id="pidPanel">
+                <div class="module-label">Drive PID (Heading Lock)</div>
+                <div class="pid-grid tight">
+                    <div class="pid-field"><label for="dKp">Kp</label><input id="dKp" type="number" step="0.001"
+                            value="0.02" title="Drive Kp"></div>
+                    <div class="pid-field"><label for="dKi">Ki</label><input id="dKi" type="number" step="0.001"
+                            value="0" title="Drive Ki"></div>
+                    <div class="pid-field"><label for="dKd">Kd</label><input id="dKd" type="number" step="0.001"
+                            value="0" title="Drive Kd"></div>
+                    <div class="pid-field"><label for="alpha">Fusion &alpha;</label><input id="alpha" type="number"
+                            step="0.01" value="0.95" min="0" max="1" title="Fusion alpha"></div>
+                </div>
+                <div class="module-label">Turn PID (Precise Rotate)</div>
+                <div class="pid-grid">
+                    <div class="pid-field"><label for="tKp">Kp</label><input id="tKp" type="number" step="0.1"
+                            value="3.0" title="Turn Kp"></div>
+                    <div class="pid-field"><label for="tKi">Ki</label><input id="tKi" type="number" step="0.1" value="0"
+                            title="Turn Ki"></div>
+                    <div class="pid-field"><label for="tKd">Kd</label><input id="tKd" type="number" step="0.1"
+                            value="0.5" title="Turn Kd"></div>
+                    <div class="pid-field"><label for="tMin">Min SPD</label><input id="tMin" type="number" value="80"
+                            min="0" max="255" title="Turn minimum speed"></div>
+                    <div class="pid-field"><label for="tMax">Max SPD</label><input id="tMax" type="number" value="180"
+                            min="0" max="255" title="Turn maximum speed"></div>
+                    <button class="pid-apply" onclick="applyPID()">Apply PID Values</button>
+                </div>
+            </div>
+
+            <button class="btn-stop" onclick="emergencyStop()">E-STOP</button>
+        </div>
+
+        <!-- RIGHT: YAW -->
+        <div class="control-zone right-zone" id="zoneR">
+            <div class="zone-label">Rotation</div>
+            <div class="turn-dial-wrap">
+                <div class="turn-dial" id="turnDial" role="slider" tabindex="0" aria-label="Rotation angle dial"
+                    aria-valuemin="-180" aria-valuemax="180" aria-valuenow="0" aria-valuetext="0 degrees">
+                    <div class="turn-dial-track"></div>
+                    <div class="turn-dial-progress"></div>
+                    <svg class="turn-dial-scale" id="turnDialScale" viewBox="-120 -120 240 240" aria-hidden="true"></svg>
+                    <div class="turn-dial-knob"></div>
+                    <div class="turn-dial-center">
+                        <div class="turn-angle-value" id="turnAngleValue">0</div>
+                        <div class="turn-angle-label">Degrees</div>
+                    </div>
+                </div>
+                <button class="turn-rotate-btn" id="rotateBtn" type="button">Rotate</button>
+                <div class="turn-reset-note">Drag, then press Rotate</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ══ CONFIG ══
+        const MOCK = false;
+        let vx = 0, vy = 0, wz = 0, cruiseMode = false;
+
+        const $ = id => document.getElementById(id);
+        const zoneL = $('zoneL'), zoneR = $('zoneR');
+        const linearPad = $('linearPad');
+        const turnDial = $('turnDial');
+        const turnDialScale = $('turnDialScale');
+        const turnAngleValue = $('turnAngleValue');
+        const rotateBtn = $('rotateBtn');
+        let lastSent = "";
+        let turnAngle = 0;
+        let dialDragging = false;
+
+        // ══ MOCK DATA (for Chrome preview) ══
+        let mockHeading = 0;
+        function getMockData() {
+            mockHeading = (mockHeading + 0.5) % 360;
+            return {
+                heading: mockHeading,
+                fusedHeading: mockHeading,
+                compass: mockHeading + Math.random() * 2 - 1,
+                rawHeading: mockHeading,
+                pitch: Math.sin(Date.now() / 2000) * 5, roll: Math.cos(Date.now() / 3000) * 3,
+                gyroZ: Math.sin(Date.now() / 1000) * 10, compassAssist: true,
+                calibrated: true, imu: true, imuReady: true, compassReady: true,
+                mode: (vx || vy || wz) ? 'driving' : 'idle'
+            };
+        }
+
+        // ══ COMMS ══
+        function api(url, cb) {
+            if (MOCK) { if (cb) cb(getMockData()); return; }
+            fetch(url).then(r => r.json()).then(cb || (() => { })).catch(() => { });
+        }
+
+        // Throttled command sender
+        setInterval(() => {
+            if (vx === 0 && vy === 0 && wz === 0 && lastSent === "stop") { document.body.classList.remove('driving'); return; }
+            let p = `vx=${vx.toFixed(2)}&vy=${vy.toFixed(2)}&wz=${wz.toFixed(2)}&speed=${$('speedSlider').value}`;
+            if (p !== lastSent) {
+                if (!MOCK) fetch('/vector?' + p).catch(() => { });
+                lastSent = (vx === 0 && vy === 0 && wz === 0) ? "stop" : p;
+                $('statusLbl').textContent = lastSent === "stop" ? "IDLE" : "VECTORING";
+                document.body.classList.toggle('driving', lastSent !== "stop");
+            }
+        }, 50);
+
+        // ══ CONTROLS ══
+        window.emergencyStop = () => {
+            vx = 0; vy = 0; wz = 0; cruiseMode = false;
+            $('btnCruise').classList.remove('active');
+            if (!MOCK) fetch('/stop').catch(() => { });
+            linearPad.querySelectorAll('.nav-btn.linear').forEach(btn => btn.classList.remove('active'));
+            zoneL.classList.remove('active');
+            zoneR.classList.remove('active');
+            resetTurnDial();
+        };
+        window.toggleCruise = () => { cruiseMode = !cruiseMode; $('btnCruise').classList.toggle('active', cruiseMode); };
+        window.toggleCompass = () => { api('/compass_toggle', d => { $('btnCompass').classList.toggle('active', d.compass); }); };
+        window.startCalibration = () => {
+            if (confirm('Robot will spin for 8s to calibrate compass.\nKeep it on a flat surface.\n\nReady?')) {
+                api('/calibrate'); $('calBtn').classList.add('active'); $('calBtn').textContent = 'SPINNING...';
+            }
+        };
+        window.imuCal = () => { if (confirm('Keep robot PERFECTLY STILL for gyro calibration.')) api('/imu_calibrate'); };
+        window.togglePID = () => { $('pidPanel').classList.toggle('collapsed'); };
+        window.applyPID = () => {
+            let q = `driveKp=${$('dKp').value}&driveKi=${$('dKi').value}&driveKd=${$('dKd').value}` +
+                `&turnKp=${$('tKp').value}&turnKi=${$('tKi').value}&turnKd=${$('tKd').value}` +
+                `&turnMin=${$('tMin').value}&turnMax=${$('tMax').value}&alpha=${$('alpha').value}`;
+            api('/set_pid?' + q);
+        };
+
+        // ══ DIRECTION PADS ══
+        function clearLinearPad() {
+            linearPad.querySelectorAll('.nav-btn.linear').forEach(btn => btn.classList.remove('active'));
+        }
+
+        function setLinear(vxCmd, vyCmd, sourceBtn) {
+            vx = vxCmd;
+            vy = vyCmd;
+            zoneL.classList.add('active');
+            clearLinearPad();
+            if (sourceBtn) sourceBtn.classList.add('active');
+        }
+
+        function stopLinear() {
+            vx = 0;
+            vy = 0;
+            zoneL.classList.remove('active');
+            clearLinearPad();
+        }
+
+        function clampTurnAngle(value) {
+            if (value > 180) return 180;
+            if (value < -180) return -180;
+            return value;
+        }
+
+        function updateTurnDial(value) {
+            turnAngle = clampTurnAngle(value);
+            const signedAngle = Number.isInteger(turnAngle) ? turnAngle : Math.round(turnAngle);
+            const progress = Math.abs(turnAngle);
+            turnDial.style.setProperty('--turn-angle', `${turnAngle}deg`);
+            turnDial.style.setProperty('--turn-progress', `${progress}deg`);
+            turnAngleValue.textContent = `${signedAngle}`;
+            turnDial.setAttribute('aria-valuenow', `${signedAngle}`);
+            turnDial.setAttribute('aria-valuetext', `${signedAngle} degrees`);
+            zoneR.classList.toggle('active', turnAngle !== 0);
+        }
+
+        function resetTurnDial() {
+            turnAngle = 0;
+            dialDragging = false;
+            wz = 0;
+            updateTurnDial(0);
+        }
+
+        function buildTurnDialScale() {
+            const SVG_NS = 'http://www.w3.org/2000/svg';
+            const outerMinor = 112;
+            const innerMinor = 102;
+            const outerMajor = 112;
+            const innerMajor = 96;
+
+            for (let deg = 0; deg < 360; deg += 15) {
+                const rad = (deg - 90) * Math.PI / 180;
+                const isMajor = deg % 45 === 0;
+                const outer = isMajor ? outerMajor : outerMinor;
+                const inner = isMajor ? innerMajor : innerMinor;
+                const line = document.createElementNS(SVG_NS, 'line');
+
+                line.setAttribute('x1', `${Math.cos(rad) * inner}`);
+                line.setAttribute('y1', `${Math.sin(rad) * inner}`);
+                line.setAttribute('x2', `${Math.cos(rad) * outer}`);
+                line.setAttribute('y2', `${Math.sin(rad) * outer}`);
+                line.setAttribute('class', isMajor ? 'major' : 'minor');
+                turnDialScale.appendChild(line);
+            }
+
+            const labels = [
+                { value: 0, text: '0' },
+                { value: 45, text: '45' },
+                { value: 90, text: '90' },
+                { value: 135, text: '135' },
+                { value: 180, text: '180' },
+                { value: -135, text: '-135' },
+                { value: -90, text: '-90' },
+                { value: -45, text: '-45' }
+            ];
+
+            const labelRadius = 86;
+            labels.forEach(({ value, text }) => {
+                const normalized = value < 0 ? value + 360 : value;
+                const rad = (normalized - 90) * Math.PI / 180;
+                const node = document.createElementNS(SVG_NS, 'text');
+
+                node.setAttribute('x', `${Math.cos(rad) * labelRadius}`);
+                node.setAttribute('y', `${Math.sin(rad) * labelRadius}`);
+                node.setAttribute('class', 'label');
+                node.textContent = text;
+                turnDialScale.appendChild(node);
+            });
+        }
+
+        function angleFromPointer(event) {
+            const rect = turnDial.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            const dx = event.clientX - centerX;
+            const dy = event.clientY - centerY;
+            const degrees = Math.atan2(dy, dx) * 180 / Math.PI + 90;
+            return ((degrees + 180) % 360) - 180;
+        }
+
+        function sendTurnCommand() {
+            const angle = Math.round(turnAngle);
+            if (angle === 0) {
+                resetTurnDial();
+                return;
+            }
+            if (!MOCK) fetch(`/turn_angle?angle=${angle}`).catch(() => { });
+            resetTurnDial();
+        }
+
+        linearPad.querySelectorAll('.nav-btn.linear').forEach(btn => {
+            const vxCmd = parseFloat(btn.dataset.vx);
+            const vyCmd = parseFloat(btn.dataset.vy);
+            btn.addEventListener('pointerdown', e => {
+                e.preventDefault();
+                setLinear(vxCmd, vyCmd, btn);
+            });
+            btn.addEventListener('pointerup', e => {
+                e.preventDefault();
+                if (!cruiseMode) stopLinear();
+            });
+            btn.addEventListener('pointercancel', () => {
+                if (!cruiseMode) stopLinear();
+            });
+            btn.addEventListener('pointerleave', () => {
+                if (!cruiseMode) stopLinear();
+            });
+            btn.addEventListener('lostpointercapture', () => {
+                if (!cruiseMode) stopLinear();
+            });
+        });
+
+        turnDial.addEventListener('pointerdown', e => {
+            e.preventDefault();
+            dialDragging = true;
+            turnDial.setPointerCapture(e.pointerId);
+            updateTurnDial(angleFromPointer(e));
+        });
+
+        turnDial.addEventListener('pointermove', e => {
+            if (!dialDragging) return;
+            updateTurnDial(angleFromPointer(e));
+        });
+
+        turnDial.addEventListener('pointerup', e => {
+            if (!dialDragging) return;
+            dialDragging = false;
+            turnDial.releasePointerCapture(e.pointerId);
+        });
+
+        turnDial.addEventListener('pointercancel', () => {
+            dialDragging = false;
+        });
+
+        turnDial.addEventListener('keydown', e => {
+            if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                updateTurnDial(turnAngle - 5);
+            } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                updateTurnDial(turnAngle + 5);
+            } else if (e.key === 'Home') {
+                e.preventDefault();
+                resetTurnDial();
+            }
+        });
+
+        rotateBtn.addEventListener('click', sendTurnCommand);
+
+        buildTurnDialScale();
+
+        $('linearStop').addEventListener('click', () => {
+            stopLinear();
+        });
+
+        resetTurnDial();
+
+        // ══ TELEMETRY ══
+        setInterval(() => {
+            api('/imu', d => {
+                const heading = d.fusedHeading !== undefined ? d.fusedHeading : d.heading;
+                if (heading >= 0) {
+                    $('headingVal').textContent = heading.toFixed(0);
+                    $('needle').style.transform = `rotate(${heading}deg)`;
+                }
+                $('pitchVal').textContent = d.pitch.toFixed(1);
+                $('rollVal').textContent = d.roll.toFixed(1);
+                $('gyroZVal').textContent = d.gyroZ.toFixed(1);
+                $('imuStatus').textContent = d.imuReady ? 'IMU:OK' : 'IMU:--';
+
+                if (d.calibrated) $('calBadge').style.display = 'none';
+                else $('calBadge').style.display = 'block';
+
+                if (d.mode === 'calibrating') {
+                    $('calBtn').classList.add('active'); $('calBtn').textContent = 'SPINNING...';
+                    $('statusLbl').textContent = 'CALIBRATING';
+                } else {
+                    $('calBtn').classList.remove('active'); $('calBtn').textContent = 'Cal Compass';
+                }
+            });
+        }, MOCK ? 100 : 150);
+
+        // Load saved PID values
+        if (!MOCK) {
+            api('/pid', d => {
+                if (d) {
+                    $('dKp').value = d.driveKp; $('dKi').value = d.driveKi; $('dKd').value = d.driveKd;
+                    $('tKp').value = d.turnKp; $('tKi').value = d.turnKi; $('tKd').value = d.turnKd;
+                    $('tMin').value = d.turnMin; $('tMax').value = d.turnMax; $('alpha').value = d.alpha;
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>)rawliteral";
